@@ -1,4 +1,3 @@
-# M18 Web UI: Pastel/Glass campus sandbox. Judge Mode (default) read-only; God Mode (?god=1) allows POST.
 from __future__ import annotations
 
 from fastapi import APIRouter, Request
@@ -68,7 +67,7 @@ def ui_page(request: Request) -> str:
 
 def _build_ui_html() -> str:
     return r"""<!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -78,13 +77,13 @@ def _build_ui_html() -> str:
 * { box-sizing: border-box; }
 body { margin: 0; font-family: system-ui, sans-serif; background: linear-gradient(135deg, #fdfcfb 0%, #f5f0e8 100%); min-height: 100vh; color: #333; }
 .layout { display: flex; flex-direction: column; height: 100vh; }
-.top { display: flex; flex: 7; min-height: 0; }
+.top { display: flex; flex: 1; min-height: 0; }
 .left { flex: 6; padding: 12px; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
 .right { flex: 4; padding: 12px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
 .bottom { flex: 0 0 auto; padding: 8px 12px; border-top: 1px solid var(--border); background: var(--glass); backdrop-filter: blur(10px); display: none; }
 .card { background: var(--glass); backdrop-filter: blur(10px); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 12px; }
 .card h3 { margin: 0 0 8px 0; font-size: 14px; }
-#canv { display: block; width: 100%; height: auto; aspect-ratio: 1 / 1; max-height: 70vh; background: #f0ede8; border-radius: var(--radius); }
+#canv { display: block; width: 100%; height: 100%; min-height: 520px; background: #f0ede8; border-radius: var(--radius); }
 #cmdlog { max-height: 120px; overflow-y: auto; font-family: monospace; font-size: 12px; }
 #cmdlog div { padding: 2px 0; }
 .god-only { display: none; }
@@ -105,6 +104,12 @@ body.god-mode .god-only { display: block; }
 #toastWrap { position: fixed; right: 16px; top: 16px; z-index: 10000; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
 .toastItem { background: rgba(20,20,20,0.9); color: #fff; border-radius: 8px; padding: 8px 10px; font-size: 12px; box-shadow: 0 6px 20px rgba(0,0,0,0.25); }
 .toastWarn { background: rgba(165,70,20,0.92); }
+.demo-health-row { display: flex; justify-content: space-between; gap: 8px; padding: 2px 0; font-size: 12px; }
+.demo-badge { border-radius: 999px; padding: 1px 8px; font-size: 11px; }
+.demo-ok { background: rgba(70,160,90,0.2); color: #2f7d47; }
+.demo-run { background: rgba(80,120,210,0.2); color: #3557a7; }
+.demo-wait { background: rgba(110,110,110,0.16); color: #5b5b5b; }
+.demo-fail { background: rgba(190,70,70,0.2); color: #9e2f2f; }
 </style>
 </head>
 <body class="layout">
@@ -121,16 +126,6 @@ body.god-mode .god-only { display: block; }
       </div>
       <canvas id="canv" width="400" height="400"></canvas>
     </div>
-    <div class="card god-only"><h3>Controls</h3>
-      <div class="btns">
-        <button type="button" id="btnJudgeDemo">Run Judge Demo</button>
-        <button type="button" id="btnObstacle">A Simulate Obstacle</button>
-        <button type="button" id="btnCharging">B Charging Dispatch</button>
-        <button type="button" id="btnVision">C Trigger AI Audit</button>
-        <button type="button" id="btnWorkOrder">D Human Fix (DONE)</button>
-        <label><input type="checkbox" id="telemetrySync" /> Sync Telemetry (slow)</label>
-      </div>
-    </div>
   </div>
   <div class="right">
     <div class="card"><h3>Narrative Guide (Judge)</h3><div id="narrativeFeed">—</div></div>
@@ -138,10 +133,17 @@ body.god-mode .god-only { display: block; }
     <div class="card"><h3>Hazards + Policy</h3><div id="hazards">—</div></div>
     <div class="card"><h3>Audit</h3><div id="audit">—</div></div>
     <div class="card"><h3>JoyGate Interventions</h3><div id="interventions">—</div></div>
+    <div class="card god-only"><h3>Controls</h3>
+      <div class="btns">
+        <button type="button" id="btnSoft">Generate SOFT</button>
+        <button type="button" id="btnLockCharger">Lock Charger</button>
+        <button type="button" id="btnCharging">B Charging Dispatch</button>
+        <label><input type="checkbox" id="telemetrySync" /> Sync Telemetry (slow)</label>
+      </div>
+    </div>
   </div>
 </div>
-<div class="bottom">
-  <div><strong>Command Log</strong></div>
+<div class="bottom" style="display:none;">
   <div id="cmdlog"></div>
 </div>
 <div id="toastWrap"></div>
@@ -177,6 +179,7 @@ var MOVE_DURATION_MS = reduceMotion ? 50 : 1000;
 var BASE_DRAIN = 0.005;
 var CHARGE_RATE = 0.15;
 var EVENT_CLEAR_MS = 8000;
+var SOFT_WITNESS_DETECT_MS = 30000;
 var EVENT_PRE_FREEZE_MS = 100;
 var EVENT_MIN_ROBOT_DIST = 3;
 var capacityReached = false;
@@ -188,31 +191,53 @@ var telemetryBotIndex = 0;
 var reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 var godToken = "";
 var demoRunning = false;
+var botsVisible = false;
+var demoHealth = {
+  active: false,
+  stage: "IDLE",
+  failed: false,
+  stages: { A: "WAIT", B: "WAIT", C: "WAIT", D: "WAIT" },
+  updatedAt: ""
+};
 var recentAuditNotes = [];
 var interventionLines = [];
 var interventionFeed = [];
 var flashMarks = [];
 var chargerFlashUntil = {};
 var eventMarks = [];
+var statusMarksBySeg = {};
 var voteHints = [];
 var narrativeFeed = [];
 var witnessAllowlist = ["w1","w2","charlie_01"];
 var tempEventBlocks = {};
 var eventRuntimeBySeg = {};
 var hazardSuppressUntilBySeg = {};
+var autoHumanDoneScheduledBySeg = {};
 var demoStrictMode = false;
 var JUDGE_DEMO_POINTS = { obstacleCell: [10, 9], chargingBotId: "echo_01", chargerId: "charger-001" };
+var JUDGE_DEMO_LEADS = { A: "charlie_01", B: "echo_01", C: "w2", D: "delta_01" };
 var JUDGE_DEMO_BOT_ANCHORS = {
-  "w1":[9,8], "w2":[11,8], "charlie_01":[10,10],
+  "w1":[8,9], "w2":[12,9], "charlie_01":[10,11],
   "alpha_02":[4,3], "charlie_02":[15,10], "delta_01":[10,15], "echo_01":[1,12], "echo_02":[18,12]
 };
+var JUDGE_DEMO_BOT_PATHS = {
+  "w1": [[8,9],[9,9],[10,9],[9,9]],
+  "w2": [[12,9],[11,9],[10,9],[11,9]],
+  "charlie_01": [[10,11],[10,10],[10,9],[10,10]],
+  "alpha_02": [[4,3],[5,3],[6,3],[5,3]],
+  "charlie_02": [[15,10],[14,10],[13,10],[14,10]],
+  "delta_01": [[10,15],[11,15],[12,15],[11,15]],
+  "echo_01": [[1,12],[2,12],[3,12],[2,12]],
+  "echo_02": [[18,12],[17,12],[16,12],[17,12]]
+};
+var demoRouteIndexByBot = {};
 
 function loadGodToken(){ try { godToken = (sessionStorage.getItem("joygate_god_token")||"").trim(); } catch(e) { godToken = ""; } }
 function setGodToken(v){ var s = (v||"").trim(); godToken = s; try { if (s) sessionStorage.setItem("joygate_god_token", s); else sessionStorage.removeItem("joygate_god_token"); } catch(e) {} updateGodUiState(); }
 function clearGodToken(){ godToken = ""; try { sessionStorage.removeItem("joygate_god_token"); } catch(e) {} var el = document.getElementById("godToken"); if (el) el.value = ""; updateGodUiState(); }
 function updateGodUiState(){
   var canWrite = isGodMode;
-  var btns = ["btnJudgeDemo","btnObstacle","btnCharging","btnVision","btnWorkOrder"];
+  var btns = ["btnSoft","btnLockCharger","btnCharging"];
   btns.forEach(function(id){ var b = document.getElementById(id); if (b) b.disabled = !canWrite; });
   var st = document.getElementById("godTokenStatus"); if (st) st.textContent = "";
 }
@@ -275,6 +300,57 @@ function showEvidenceModal(title, body){
   if (b) b.textContent = body || "—";
   if (m) { m.classList.add("show"); m.setAttribute("aria-hidden", "false"); }
 }
+function hhmmssNow(){
+  var t = new Date();
+  return t.getHours().toString().padStart(2, "0") + ":" + t.getMinutes().toString().padStart(2, "0") + ":" + t.getSeconds().toString().padStart(2, "0");
+}
+function resetDemoHealth(){
+  demoHealth.active = false;
+  demoHealth.stage = "IDLE";
+  demoHealth.failed = false;
+  demoHealth.stages = { A: "WAIT", B: "WAIT", C: "WAIT", D: "WAIT" };
+  demoHealth.updatedAt = hhmmssNow();
+}
+function setDemoStage(code, status){
+  if (!demoHealth.stages[code]) return;
+  demoHealth.stages[code] = status;
+  demoHealth.updatedAt = hhmmssNow();
+}
+function renderDemoHealth(){
+  var el = document.getElementById("demoHealth");
+  if (!el) return;
+  var title = demoHealth.failed ? "FAILED" : (demoHealth.active ? ("RUNNING: " + demoHealth.stage) : "READY");
+  el.textContent = "";
+  var head = document.createElement("div");
+  head.className = "demo-health-row";
+  var left = document.createElement("span");
+  left.textContent = "State";
+  var right = document.createElement("span");
+  var cls = demoHealth.failed ? "demo-fail" : (demoHealth.active ? "demo-run" : "demo-ok");
+  right.className = "demo-badge " + cls;
+  right.textContent = title;
+  head.appendChild(left);
+  head.appendChild(right);
+  el.appendChild(head);
+  ["A","B","C","D"].forEach(function(k){
+    var row = document.createElement("div");
+    row.className = "demo-health-row";
+    var label = document.createElement("span");
+    label.textContent = k + " Stage";
+    var badge = document.createElement("span");
+    var st = demoHealth.stages[k] || "WAIT";
+    badge.className = "demo-badge " + (st === "DONE" ? "demo-ok" : st === "RUNNING" ? "demo-run" : st === "FAILED" ? "demo-fail" : "demo-wait");
+    badge.textContent = st;
+    row.appendChild(label);
+    row.appendChild(badge);
+    el.appendChild(row);
+  });
+  var time = document.createElement("div");
+  time.style.fontSize = "11px";
+  time.style.opacity = "0.75";
+  time.textContent = "updated: " + (demoHealth.updatedAt || "—");
+  el.appendChild(time);
+}
 function hideEvidenceModal(){
   var m = document.getElementById("evidenceModal");
   if (m) { m.classList.remove("show"); m.setAttribute("aria-hidden", "true"); }
@@ -300,44 +376,8 @@ function isCellFarFromAllBots(cell, minDist){
   return best >= minDist;
 }
 function pickDemoObstacleCell(){
-  // Deterministic candidate order; prefer cells that are close (1-2 cells) and have witness candidates.
-  var candidates = [[10,9],[9,9],[11,9],[10,8],[10,10],[8,9],[12,9],[9,10],[11,10]];
-  var bestNear = null;
-  var bestNearDist = 999;
-  for (var i = 0; i < candidates.length; i++) {
-    var c = candidates[i];
-    if (!isRoad(c[0], c[1]) || isBuilding(c[0], c[1])) continue;
-    if (!isCellFarFromAllBots(c, 1)) continue;
-    if (getNearbyWitnesses(c).length <= 0) continue;
-    var minD = 999;
-    Object.keys(botState).forEach(function(id){
-      var b = botState[id]; var p = (b && b.currentCell) ? b.currentCell : (robotSpawn[id] || null);
-      if (!p) return;
-      var d = manhattan(c, p);
-      if (d < minD) minD = d;
-    });
-    if (minD >= 1 && minD <= 2 && minD < bestNearDist) { bestNearDist = minD; bestNear = [c[0], c[1]]; }
-  }
-  if (bestNear) return bestNear;
-  // Fallback: nearest road cell that still has witness candidates.
-  var bestCell = [10, 9];
-  var bestDist = 999;
-  for (var y = 1; y <= 18; y++) {
-    for (var x = 1; x <= 18; x++) {
-      if (!isRoad(x, y) || isBuilding(x, y)) continue;
-      if (!isCellFarFromAllBots([x, y], 1)) continue;
-      if (getNearbyWitnesses([x, y]).length === 0) continue;
-      var minD = 999;
-      Object.keys(botState).forEach(function(id){
-        var b = botState[id]; var p = (b && b.currentCell) ? b.currentCell : (robotSpawn[id] || null);
-        if (!p) return;
-        var d = manhattan([x, y], p);
-        if (d < minD) minD = d;
-      });
-      if (minD < bestDist) { bestDist = minD; bestCell = [x, y]; }
-    }
-  }
-  return bestCell;
+  // Judge demo must be reproducible: always use the fixed storyboard cell.
+  return [JUDGE_DEMO_POINTS.obstacleCell[0], JUDGE_DEMO_POINTS.obstacleCell[1]];
 }
 function resetBotsToJudgeDemoAnchors(){
   Object.keys(robotToRoute).forEach(function(id){
@@ -349,9 +389,101 @@ function resetBotsToJudgeDemoAnchors(){
     b.mode = "PATROL";
     b.targetChargerId = null;
     b.negotiating = false;
+    b.lowBatteryNoted = false;
+    // Freeze demo randomness: all bots start with fixed high battery.
+    b.battery = 0.92;
     b.moveStartMs = Date.now();
   });
+  // Scripted actor for Step B.
+  var cb = JUDGE_DEMO_POINTS.chargingBotId;
+  if (botState[cb]) botState[cb].battery = 0.18;
+  resetDemoRouteIndices();
   redraw();
+}
+function syncDemoRouteIndex(id){
+  var path = JUDGE_DEMO_BOT_PATHS[id];
+  if (!path || !path.length) { demoRouteIndexByBot[id] = 0; return; }
+  var b = botState[id];
+  var cur = (b && b.currentCell) ? b.currentCell : (robotSpawn[id] || path[0]);
+  var best = 0;
+  var bestD = 1e9;
+  for (var i = 0; i < path.length; i++) {
+    var d = manhattan(cur, path[i]);
+    if (d < bestD) { bestD = d; best = i; }
+  }
+  demoRouteIndexByBot[id] = best;
+}
+function resetDemoRouteIndices(){
+  Object.keys(robotToRoute).forEach(function(id){ syncDemoRouteIndex(id); });
+}
+function nextDemoPathCell(id){
+  var path = JUDGE_DEMO_BOT_PATHS[id];
+  if (!path || !path.length) return null;
+  var idx = (demoRouteIndexByBot[id] === undefined) ? 0 : (demoRouteIndexByBot[id] | 0);
+  var nextIdx = (idx + 1) % path.length;
+  demoRouteIndexByBot[id] = nextIdx;
+  return [path[nextIdx][0], path[nextIdx][1]];
+}
+function setBotMoveTarget(id, toCell, durationMs){
+  var b = botState[id] || (botState[id] = {});
+  var cur = (b.currentCell || robotSpawn[id] || [0,0]).slice(0);
+  b.currentCell = [cur[0], cur[1]];
+  b.nextCell = [toCell[0], toCell[1]];
+  b.pathCells = [];
+  b.moveStartMs = Date.now();
+  b.moveDurationMs = durationMs || 800;
+}
+async function demoMoveBotTo(id, toCell, durationMs){
+  var dur = durationMs || 800;
+  setBotMoveTarget(id, toCell, dur);
+  await sleepMs(dur + 40);
+  var b = botState[id];
+  if (!b) return;
+  b.currentCell = [toCell[0], toCell[1]];
+  b.nextCell = [toCell[0], toCell[1]];
+  b.moveStartMs = Date.now();
+  syncDemoRouteIndex(id);
+}
+async function demoMoveAllBots(frameIdx, durationMs, excludeId){
+  var dur = durationMs || 800;
+  var jobs = [];
+  Object.keys(robotToRoute).forEach(function(id){
+    if (excludeId && id === excludeId) return;
+    var cell = nextDemoPathCell(id);
+    if (!cell) return;
+    jobs.push(demoMoveBotTo(id, cell, dur));
+  });
+  await Promise.all(jobs);
+}
+async function demoAdvanceAll(frameState, durationMs, excludeId){
+  var idx = (frameState && typeof frameState.idx === "number") ? frameState.idx : 0;
+  await demoMoveAllBots(idx, durationMs, excludeId);
+  if (frameState) frameState.idx = (idx + 1) % 4;
+}
+async function demoCruiseFor(totalMs, stepMs, frameState, excludeId){
+  var step = stepMs || 320;
+  var loops = Math.max(1, Math.ceil((totalMs || step) / step));
+  for (var i = 0; i < loops; i++) {
+    await demoAdvanceAll(frameState, step, excludeId);
+  }
+}
+async function demoMoveBotAlong(id, toCell, stepMs, frameState){
+  var b = botState[id];
+  if (!b) return;
+  var from = (b.currentCell || robotSpawn[id] || [0,0]).slice(0);
+  var path = bfs(from, toCell, true);
+  var dur = stepMs || 520;
+  if (!path || path.length < 2) {
+    // Never "teleport" across multiple cells in demo fallback.
+    await demoCruiseFor(dur, Math.max(260, dur - 140), frameState, id);
+    return;
+  }
+  for (var i = 1; i < path.length; i++) {
+    await Promise.all([
+      demoMoveBotTo(id, [path[i][0], path[i][1]], dur),
+      demoAdvanceAll(frameState, Math.max(260, dur - 140), id)
+    ]);
+  }
 }
 function clearEventVisuals(){
   flashMarks = [];
@@ -364,6 +496,7 @@ function clearDemoScene(){
   Object.keys(tempEventBlocks).forEach(function(k){ delete tempEventBlocks[k]; });
   Object.keys(eventRuntimeBySeg).forEach(function(k){ delete eventRuntimeBySeg[k]; });
   Object.keys(hazardSuppressUntilBySeg).forEach(function(k){ delete hazardSuppressUntilBySeg[k]; });
+  Object.keys(autoHumanDoneScheduledBySeg).forEach(function(k){ delete autoHumanDoneScheduledBySeg[k]; });
   localHazards = {};
   snapshot.hazards = [];
   redraw();
@@ -372,47 +505,83 @@ function upsertLocalHazard(seg, status){
   if (isHazardSuppressed(seg) && status !== "OPEN") return;
   if (status === "OPEN") {
     delete localHazards[seg];
+    delete statusMarksBySeg[seg];
+    delete autoHumanDoneScheduledBySeg[seg];
   } else {
     localHazards[seg] = { segment_id: seg, hazard_status: status, hazard_id: "haz_ui_" + seg + "_" + Date.now() };
+    var p = parseCell(seg);
+    if (p) {
+      if (status === "SOFT_BLOCKED") statusMarksBySeg[seg] = { cell: [p[0], p[1]], text: "SOFT", color: "rgba(200,60,60,0.55)" };
+      else if (status === "HARD_BLOCKED") statusMarksBySeg[seg] = { cell: [p[0], p[1]], text: "HARD", color: "rgba(200,80,80,0.65)" };
+    }
+    if (status === "HARD_BLOCKED") scheduleAutoHumanDoneForHard(seg);
   }
   // snapshot.hazards no longer modified directly to avoid race with polling
   recomputeAllPaths();
   redraw();
 }
-function ensureEventTimeoutClear(seg){
+function ensureEventTimeoutClear(seg, durationMs){
+  var ttl = (typeof durationMs === "number" && durationMs > 0) ? durationMs : EVENT_CLEAR_MS;
   setTimeout(function(){
     delete tempEventBlocks[seg];
     if (eventRuntimeBySeg[seg]) eventRuntimeBySeg[seg].resolved = true;
     // Suppress rebound from backend polling for a short window after forced clear.
     hazardSuppressUntilBySeg[seg] = Date.now() + 10000;
     delete localHazards[seg];
+    delete statusMarksBySeg[seg];
     clearEventVisuals();
-    pushNarrative("Event auto-cleared in 8s: " + seg);
+    pushNarrative("Event auto-cleared in " + Math.round(ttl/1000) + "s: " + seg);
     recomputeAllPaths();
     redraw();
-  }, EVENT_CLEAR_MS);
+  }, ttl);
+}
+function botCellApproxNow(id){
+  // Use an approximate cell based on movement progress so "within 2 cells"
+  // matches what users see on screen while bots are moving.
+  var b = botState[id];
+  var cur = (b && b.currentCell) ? b.currentCell : (robotSpawn[id] || null);
+  if (!cur) return null;
+  var nxt = (b && b.nextCell) ? b.nextCell : cur;
+  var now = Date.now();
+  var startMs = (b && typeof b.moveStartMs === "number") ? b.moveStartMs : now;
+  var dur = (b && b.moveDurationMs !== undefined) ? b.moveDurationMs : MOVE_DURATION_MS;
+  if (!dur || dur < 1) return [cur[0], cur[1]];
+  var t = (cur[0]===nxt[0] && cur[1]===nxt[1]) ? 1 : Math.min(1, Math.max(0, (now - startMs) / dur));
+  var x = cur[0] + (nxt[0] - cur[0]) * t;
+  var y = cur[1] + (nxt[1] - cur[1]) * t;
+  return [Math.round(x), Math.round(y)];
+}
+function botMinDistToCellNow(id, cell){
+  // More robust than a single rounded cell: use min dist of currentCell/nextCell.
+  if (!cell) return 999;
+  var b = botState[id];
+  var cur = (b && b.currentCell) ? b.currentCell : (robotSpawn[id] || null);
+  if (!cur) return 999;
+  var nxt = (b && b.nextCell) ? b.nextCell : cur;
+  var d1 = manhattan([cur[0], cur[1]], cell);
+  var d2 = manhattan([nxt[0], nxt[1]], cell);
+  return Math.min(d1, d2);
 }
 function getNearbyWitnesses(cell){
+  var maxDist = 2;
   var candidates = witnessAllowlist.filter(function(id){
-    var b = botState[id];
-    var p = (b && b.currentCell) ? b.currentCell : (robotSpawn[id] || null);
-    return !!p && manhattan(p, cell) <= 1;
+    return botMinDistToCellNow(id, cell) <= maxDist;
   });
   return candidates;
 }
 function isWitnessWithinOneCell(id, cell){
-  var b = botState[id];
-  var p = (b && b.currentCell) ? b.currentCell : (robotSpawn[id] || null);
-  return !!p && manhattan(p, cell) <= 1;
+  return botMinDistToCellNow(id, cell) <= 2;
 }
-function ensureEventClearScheduled(seg){
+function ensureEventClearScheduled(seg, durationMs){
   var rt = eventRuntimeBySeg[seg];
   if (!rt || rt.clearScheduled) return;
   rt.clearScheduled = true;
-  ensureEventTimeoutClear(seg);
+  ensureEventTimeoutClear(seg, durationMs);
 }
 
 var chargerCells = {"charger-001":[6,18],"charger-002":[8,18],"charger-003":[10,18],"charger-004":[12,18],"charger-005":[14,18]};
+// Grid size constants (used by event pickers)
+var GW = 20, GH = 20;
 var robotSpawn = {"w1":[2,1],"w2":[17,1],"charlie_01":[5,10],"charlie_02":[15,10],"alpha_02":[10,3],"delta_01":[10,15],"echo_01":[1,12],"echo_02":[18,12]};
 var robotRoutes = {"Route_OuterPatrol":[[1,1],[18,1],[18,17],[1,17],[1,1]],"Route_EastWest_Shuttle":[[1,10],[18,10],[18,17],[1,17],[1,10]],"Route_CentralDelivery":[[10,3],[10,10],[3,10],[3,17],[10,17],[17,17],[17,10],[10,10],[10,3]],"Route_ChargingDrill":[[10,3],[10,17],[6,17],[14,17],[10,17],[10,3]]};
 var robotToRoute = {"w1":"Route_OuterPatrol","w2":"Route_OuterPatrol","charlie_01":"Route_ChargingDrill","echo_02":"Route_ChargingDrill","alpha_02":"Route_EastWest_Shuttle","echo_01":"Route_EastWest_Shuttle","charlie_02":"Route_CentralDelivery","delta_01":"Route_CentralDelivery"};
@@ -424,12 +593,16 @@ var VENDOR_CFG = {
   "vendor_delta": { color: "#00FF55", drain_coeff: 1.15, init_min: 0.85, init_max: 0.93 },
   "vendor_echo": { color: "#AA00FF", drain_coeff: 0.98, init_min: 0.92, init_max: 1.00 }
 };
-var buildings = [[4,6,4,6],[13,15,4,6],[4,6,13,14],[13,15,13,14]];
-var roadRects = [[1,18,1,1],[1,18,17,17],[1,1,1,17],[18,18,1,17],[10,10,1,17],[1,18,10,10]];
-var parkRect = [6,13,12,15];
+var buildings = [[3,5,3,5],[12,14,3,5],[3,5,12,14],[12,14,12,14],[8,9,4,5]];
+var roadRects = [[1,18,1,1],[1,18,17,17],[1,1,1,17],[18,18,1,17],[9,10,1,17],[1,18,8,9],[1,18,16,17]];
+var parkRect = [7,12,10,14];
 function isRoad(x,y){ return roadRects.some(function(r){ return x>=r[0]&&x<=r[1]&&y>=r[2]&&y<=r[3]; }); }
 function isBuilding(x,y){ return buildings.some(function(b){ return x>=b[0]&&x<=b[1]&&y>=b[2]&&y<=b[3]; }); }
 function isPark(x,y){ return x>=parkRect[0]&&x<=parkRect[1]&&y>=parkRect[2]&&y<=parkRect[3]; }
+function isChargerPad(x,y){
+  if (y !== 18) return false;
+  return x===6 || x===8 || x===10 || x===12 || x===14;
+}
 function getHazardStatus(x,y){
   var seg = cellId(x,y);
   if (isHazardSuppressed(seg)) return "";
@@ -446,7 +619,7 @@ function isTempEventBlocked(seg){
 }
 function isBlocked(x,y){
   var st = getHazardStatus(x,y);
-  return isBuilding(x,y) || st === "HARD_BLOCKED" || st === "SOFT_BLOCKED" || isTempEventBlocked(cellId(x,y));
+  return isBuilding(x,y) || isChargerPad(x,y) || st === "HARD_BLOCKED" || st === "SOFT_BLOCKED" || isTempEventBlocked(cellId(x,y));
 }
 function cellCost(x,y){
   if (isBlocked(x,y)) return 99999;
@@ -456,10 +629,10 @@ function cellCost(x,y){
   if (isPark(x,y)) return 3;
   return 2;
 }
-function bfs(from, to){
+function bfs(from, to, allowTargetBlocked){
   var fx=from[0], fy=from[1], tx=to[0], ty=to[1];
   if (fx===tx&&fy===ty) return [];
-  if (isBlocked(tx,ty)) return [];
+  if (isBlocked(tx,ty) && !allowTargetBlocked) return [];
   var dist = {}; var prev = {}; var key = function(a,b){ return a+","+b; };
   var q = [{x:fx,y:fy,c:0}]; dist[key(fx,fy)] = 0;
   var dx = [0,1,0,-1], dy = [1,0,-1,0];
@@ -475,7 +648,7 @@ function bfs(from, to){
     for (var d=0;d<4;d++) {
       var nx = u.x+dx[d], ny = u.y+dy[d];
       if (nx<0||nx>19||ny<0||ny>19) continue;
-      if (isBlocked(nx,ny)) continue;
+      if (isBlocked(nx,ny) && !(allowTargetBlocked && nx===tx && ny===ty)) continue;
       var nk = key(nx,ny);
       var cost = u.c + cellCost(nx,ny);
       if (dist[nk] === undefined || cost < dist[nk]) { dist[nk]=cost; prev[nk]=[u.x,u.y]; q.push({x:nx,y:ny,c:cost}); }
@@ -485,18 +658,8 @@ function bfs(from, to){
 }
 
 function log(level, msg){
-  var t = new Date(); var ts = t.getHours().toString().padStart(2,"0")+":"+t.getMinutes().toString().padStart(2,"0")+":"+t.getSeconds().toString().padStart(2,"0");
-  cmdLog.push({ts:ts,level:level,msg:msg});
-  if (cmdLog.length > MAX_LOG) cmdLog.shift();
-  var el = document.getElementById("cmdlog"); if (!el) return;
-  var show = cmdLog.slice(-DISPLAY_LOG_LINES);
-  el.textContent = "";
-  show.forEach(function(e){ var row = document.createElement("div"); row.textContent = "["+e.ts+"] ["+e.level+"] "+e.msg; el.appendChild(row); });
-  el.scrollTop = el.scrollHeight;
-}
-function hhmmssNow(){
-  var t = new Date();
-  return t.getHours().toString().padStart(2, "0") + ":" + t.getMinutes().toString().padStart(2, "0") + ":" + t.getSeconds().toString().padStart(2, "0");
+  // Hidden in judge-focused mode: keep UI clean and narrative-first.
+  return;
 }
 function reasonTag(reason){
   var r = (reason || "intervention").toUpperCase();
@@ -510,8 +673,8 @@ function addIntervention(botId, reason, target, pathCells){
   var vid = BOT_VENDOR[botId] || "vendor_alpha";
   var color = (VENDOR_CFG[vid] && VENDOR_CFG[vid].color) || "#ffffff";
   var now = Date.now();
-  var start = (botState[botId] && botState[botId].currentCell) ? botState[botId].currentCell.slice(0) : (robotSpawn[botId] || [0,0]);
-  var p = [start].concat(Array.isArray(pathCells) ? pathCells.slice(0) : []);
+  var p = Array.isArray(pathCells) ? pathCells.slice(0) : [];
+  if (p.length < 2) return;
   var tag = reasonTag(reason);
   interventionLines.push({ path: p, color: color, timestamp: now, reason: tag });
   if (interventionLines.length > 24) interventionLines = interventionLines.slice(-24);
@@ -527,6 +690,19 @@ function pauseAllBots(ms){
     var b = botState[id]; if (!b) return;
     var start = b.moveStartMs || now;
     b.moveStartMs = Math.max(start, now) + (ms || 200);
+  });
+}
+function pauseBotsNearCell(cell, maxDist, ms){
+  if (!cell) return;
+  var now = Date.now();
+  var dist = (typeof maxDist === "number") ? maxDist : 2;
+  Object.keys(botState).forEach(function(id){
+    var b = botState[id]; if (!b) return;
+    var p = (b && b.currentCell) ? b.currentCell : (robotSpawn[id] || null);
+    if (!p) return;
+    if (manhattan([p[0], p[1]], cell) > dist) return;
+    var start = b.moveStartMs || now;
+    b.moveStartMs = Math.max(start, now) + (ms || 120);
   });
 }
 function markEvent(cell, text, ms, color){
@@ -556,7 +732,7 @@ function recomputeAllPaths(){
     var path = [];
     if (b.mode === "TO_CHARGER" || b.mode === "REROUTE") {
       var cid = b.targetChargerId; if (!cid || !chargerCells[cid]) return;
-      path = bfs(cur, chargerCells[cid]);
+      path = bfs(cur, chargerCells[cid], true);
     } else {
       var r = robotRoutes[robotToRoute[id]]; if (!r) return;
       var wpIdx = (b.routeWaypointIndex|0) % r.length;
@@ -580,7 +756,13 @@ function runPolling(){
       var allSegs = {};
       Object.keys(prevMap).forEach(function(s){ allSegs[s]=1; });
       Object.keys(currMap).forEach(function(s){ allSegs[s]=1; });
-      for (var seg in allSegs) { if (prevMap[seg] !== currMap[seg]) { log("INFO", "hazard " + seg + " " + (prevMap[seg]||"") + " -> " + (currMap[seg]||"")); hazardChanged = true; } }
+      for (var seg in allSegs) {
+        if (prevMap[seg] !== currMap[seg]) {
+          log("INFO", "hazard " + seg + " " + (prevMap[seg]||"") + " -> " + (currMap[seg]||""));
+          hazardChanged = true;
+          if (currMap[seg] === "HARD_BLOCKED" && prevMap[seg] !== "HARD_BLOCKED") scheduleAutoHumanDoneForHard(seg);
+        }
+      }
       prevHazards = currH.slice(0);
       snapshot = d || snapshot;
       snapshot.hazards = currH;
@@ -638,20 +820,23 @@ function updateCards(){
       });
     }
   }
+  renderDemoHealth();
 }
 
-var canvas = document.getElementById("canv"); var ctx = canvas.getContext("2d"); var W = 400; var H = 400; var CS = Math.min(W,H)/20;
+var canvas = document.getElementById("canv"); var ctx = canvas.getContext("2d"); var W = 400; var H = 400; var CS = Math.min(W,H)/20; var CSX = W/20; var CSY = H/20;
 var offStatic = null;
 function resizeCanvas(){
   var parent = canvas.parentElement;
-  var size = Math.floor(Math.max(320, Math.min(parent ? parent.clientWidth : 400, parent ? parent.clientHeight : 400)));
+  var w = Math.floor(Math.max(640, (parent ? parent.clientWidth : 640)));
+  var hRaw = parent ? parent.clientHeight : 620;
+  var h = Math.floor(Math.max(520, hRaw));
   var dpr = window.devicePixelRatio || 1;
-  canvas.style.width = size + "px";
-  canvas.style.height = size + "px";
-  canvas.width = size * dpr;
-  canvas.height = size * dpr;
-  ctx.scale(dpr, dpr);
-  W = size; H = size; CS = size / 20;
+  canvas.style.width = w + "px";
+  canvas.style.height = h + "px";
+  canvas.width = w * dpr;
+  canvas.height = h * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  W = w; H = h; CSX = W / 20; CSY = H / 20; CS = Math.min(CSX, CSY);
   offStatic = null;
 }
 function drawStatic(){
@@ -663,45 +848,49 @@ function drawStatic(){
   var c = offStatic.getContext("2d");
   c.scale(dpr, dpr);
   for (var y = 0; y < 20; y++) for (var x = 0; x < 20; x++) {
-    var px = x*CS; var py = y*CS;
-    if (isBuilding(x,y)) { c.fillStyle = "#c4b8a8"; c.fillRect(px,py,CS,CS); c.strokeRect(px,py,CS,CS); }
-    else if (isPark(x,y)) { c.fillStyle = "rgba(180,220,180,0.5)"; c.fillRect(px,py,CS,CS); }
-    else if (isRoad(x,y)) { c.fillStyle = "#e8e4dc"; c.fillRect(px,py,CS,CS); }
-    else { c.fillStyle = "#f0ede8"; c.fillRect(px,py,CS,CS); }
-    c.strokeStyle = "#ddd"; c.strokeRect(px,py,CS,CS);
+    var px = x*CSX; var py = y*CSY;
+    if (isBuilding(x,y)) { c.fillStyle = "#c4b8a8"; c.fillRect(px,py,CSX,CSY); c.strokeRect(px,py,CSX,CSY); }
+    else if (isChargerPad(x,y)) { c.fillStyle = "#b8b0a3"; c.fillRect(px,py,CSX,CSY); c.strokeStyle = "#968e80"; c.strokeRect(px,py,CSX,CSY); }
+    else if (isPark(x,y)) { c.fillStyle = "rgba(168,214,175,0.62)"; c.fillRect(px,py,CSX,CSY); }
+    else if (isRoad(x,y)) { c.fillStyle = "#dfe7f0"; c.fillRect(px,py,CSX,CSY); if ((x+y)%2===0) { c.fillStyle = "rgba(255,255,255,0.38)"; c.fillRect(px+CSX*0.35, py+CSY*0.46, CSX*0.3, CSY*0.08); } }
+    else { c.fillStyle = "#f0ede8"; c.fillRect(px,py,CSX,CSY); }
+    c.strokeStyle = "#ddd"; c.strokeRect(px,py,CSX,CSY);
   }
   c.fillStyle = "#6f655b"; c.font = "bold 10px sans-serif";
-  c.fillText("ADMIN", 3.2*CS, 3.8*CS);
-  c.fillText("LAB", 13.1*CS, 4.2*CS);
-  c.fillText("WH-A", 3.1*CS, 11.8*CS);
-  c.fillText("WH-B", 13.1*CS, 11.8*CS);
-  c.fillStyle = "#5e8f5a"; c.fillText("CENTRAL PARK", 7.1*CS, 7.6*CS);
+  c.fillText("ADMIN", 3.4*CSX, 4.0*CSY);
+  c.fillText("LAB", 12.6*CSX, 4.1*CSY);
+  c.fillText("DORM", 3.6*CSX, 14.0*CSY);
+  c.fillText("WAREHOUSE", 12.2*CSX, 14.0*CSY);
+  c.fillText("SECURITY", 8.1*CSX, 5.2*CSY);
+  c.fillStyle = "#5e8f5a"; c.fillText("CENTRAL PARK", 7.0*CSX, 11.2*CSY);
+  c.fillStyle = "#6f655b"; c.fillText("CHARGING APRON", 10.8*CSX, 16.6*CSY);
   ctx.drawImage(offStatic,0,0,W,H);
 }
 function isChargerRealOccupied(id){
-  var holds = (snapshot.holds||[]).map(function(h){ return (h.resource_id || h.charger_id||"").trim(); });
-  if (holds.indexOf(id) >= 0) return true;
-  return (snapshot.chargers||[]).some(function(c){ var cid = (c.charger_id||c.id||"").trim(); if (cid !== id) return false; var st = (c.slot_state||"").toUpperCase(); return st !== "" && st !== "FREE"; });
+  // UI-only occupancy: do not treat backend holds/slot_state as "locked"
+  // to keep chargers idle at page start. Only local overrides (lock event / 409) mark occupied.
+  var ov = chargerOverrides[id];
+  if (!ov) return false;
+  if (!ov.expiresAtMs) return false;
+  if (Date.now() >= ov.expiresAtMs) return false;
+  return (ov.state || "").toUpperCase() === "OCCUPIED";
 }
 function drawChargers(){
   var now = Date.now();
-  var holds = (snapshot.holds||[]).map(function(h){ return (h.resource_id || h.charger_id||"").trim(); });
   for (var id in chargerCells) {
     var p = chargerCells[id];
     var ov = chargerOverrides[id];
-    var realOccupied = holds.indexOf(id) >= 0 || (snapshot.chargers||[]).some(function(c){ var cid = (c.charger_id||c.id||"").trim(); if (cid !== id) return false; var st = (c.slot_state||"").toUpperCase(); return st !== "" && st !== "FREE"; });
-    if (realOccupied && ov) { delete chargerOverrides[id]; log("INFO", "charger override cleared (real state) " + id); }
     var useOverride = ov && (ov.expiresAtMs > now);
-    var occupied = realOccupied || (useOverride ? (ov.state === "OCCUPIED") : false);
+    var occupied = (useOverride ? ((ov.state || "").toUpperCase() === "OCCUPIED") : false);
     var hi = chargerFlashUntil[id] && chargerFlashUntil[id] > now;
     ctx.fillStyle = occupied ? "rgba(100,100,100,0.8)" : "#4a90d9";
-    ctx.beginPath(); ctx.arc((p[0]+0.5)*CS,(p[1]+0.5)*CS,CS*0.45,0,6.28); ctx.fill();
+    ctx.beginPath(); ctx.arc((p[0]+0.5)*CSX,(p[1]+0.5)*CSY,CS*0.45,0,6.28); ctx.fill();
     if (hi) {
       ctx.strokeStyle = "rgba(255,70,70,0.95)";
       ctx.lineWidth = 3;
-      ctx.beginPath(); ctx.arc((p[0]+0.5)*CS,(p[1]+0.5)*CS,CS*0.44,0,6.28); ctx.stroke();
+      ctx.beginPath(); ctx.arc((p[0]+0.5)*CSX,(p[1]+0.5)*CSY,CS*0.44,0,6.28); ctx.stroke();
     }
-    ctx.fillStyle = "#000"; ctx.textAlign = "center"; ctx.font = "10px sans-serif"; ctx.fillText(id, (p[0]+0.5)*CS, (p[1]+1)*CS);
+    ctx.fillStyle = "#000"; ctx.textAlign = "center"; ctx.font = "10px sans-serif"; ctx.fillText(id, (p[0]+0.5)*CSX, (p[1]+1)*CSY);
   }
 }
 function drawHazards(){
@@ -709,21 +898,22 @@ function drawHazards(){
   h.forEach(function(z){
     if (isHazardSuppressed(z.segment_id || "")) return;
     var p = parseCell(z.segment_id); if (!p) return;
-    var px = p[0]*CS, py = p[1]*CS;
+    var px = p[0]*CSX, py = p[1]*CSY;
     var st = (z.hazard_status||"").toUpperCase();
-    if (st === "HARD_BLOCKED") { ctx.fillStyle = "rgba(200,80,80,0.6)"; ctx.fillRect(px,py,CS,CS); ctx.strokeStyle = "#a55"; for (var i = 0; i < 4; i++) ctx.strokeRect(px+i*2,py,CS-i*4,CS); }
-    else if (st === "SOFT_BLOCKED") { ctx.fillStyle = "rgba(255,230,150,0.7)"; ctx.fillRect(px,py,CS,CS); ctx.strokeRect(px,py,CS,CS); }
-    else if (st === "OPEN") { ctx.fillStyle = "rgba(150,200,150,0.2)"; ctx.fillRect(px,py,CS,CS); }
+    if (st === "HARD_BLOCKED") { ctx.fillStyle = "rgba(200,80,80,0.6)"; ctx.fillRect(px,py,CSX,CSY); ctx.strokeStyle = "#a55"; for (var i = 0; i < 4; i++) ctx.strokeRect(px+i*2,py,CSX-i*4,CSY); }
+    else if (st === "SOFT_BLOCKED") { ctx.fillStyle = "rgba(255,230,150,0.7)"; ctx.fillRect(px,py,CSX,CSY); ctx.strokeRect(px,py,CSX,CSY); }
+    else if (st === "OPEN") { ctx.fillStyle = "rgba(150,200,150,0.2)"; ctx.fillRect(px,py,CSX,CSY); }
   });
 }
 function drawFreshness(){
   var sig = snapshot.segment_passed_signals || [];
   sig.forEach(function(s){
     var p = parseCell(s.segment_id); if (!p) return;
-    ctx.fillStyle = "rgba(100,200,255,0.25)"; ctx.fillRect(p[0]*CS,p[1]*CS,CS,CS);
+    ctx.fillStyle = "rgba(100,200,255,0.25)"; ctx.fillRect(p[0]*CSX,p[1]*CSY,CSX,CSY);
   });
 }
 function drawRobotsDerived(){
+  if (!botsVisible) return;
   var sig = snapshot.segment_passed_signals || [];
   sig.forEach(function(s){
     var p = parseCell(s.segment_id); if (!p) return;
@@ -751,7 +941,7 @@ function drawRobotsDerived(){
     var n = list.length;
     list.forEach(function(item, idx){
       var id = item.id, s = item.s, cellX = item.cellX, cellY = item.cellY;
-      var baseX = (cellX+0.5)*CS, baseY = (cellY+0.5)*CS;
+      var baseX = (cellX+0.5)*CSX, baseY = (cellY+0.5)*CSY;
       var offX = 0, offY = 0;
       if (n > 1) {
         var angle = (idx / n) * 6.28;
@@ -762,7 +952,7 @@ function drawRobotsDerived(){
       var vid = BOT_VENDOR[id] || "vendor_alpha";
       var cfg = VENDOR_CFG[vid] || VENDOR_CFG.vendor_alpha;
       ctx.fillStyle = s.negotiating ? "#b8860b" : cfg.color;
-      ctx.beginPath(); ctx.arc(x,y,CS*0.35,0,6.28); ctx.fill();
+      ctx.beginPath(); ctx.arc(x,y,CS*0.24,0,6.28); ctx.fill();
       ctx.fillStyle = "#fff"; ctx.textAlign = "center"; ctx.font = "9px sans-serif"; ctx.fillText((id+"").slice(0,4), x, y+3);
       var bat = (s.battery !== undefined && s.battery !== null) ? s.battery : 1;
       var pct = Math.round(bat * 100);
@@ -784,8 +974,8 @@ function drawGuideLines(){
     ctx.lineWidth = 2;
     if (ctx.setLineDash) ctx.setLineDash([6, 6]);
     ctx.beginPath();
-    ctx.moveTo((pts[0][0]+0.5)*CS, (pts[0][1]+0.5)*CS);
-    for (var i = 1; i < pts.length; i++) ctx.lineTo((pts[i][0]+0.5)*CS, (pts[i][1]+0.5)*CS);
+    ctx.moveTo((pts[0][0]+0.5)*CSX, (pts[0][1]+0.5)*CSY);
+    for (var i = 1; i < pts.length; i++) ctx.lineTo((pts[i][0]+0.5)*CSX, (pts[i][1]+0.5)*CSY);
     ctx.stroke();
     if (ctx.setLineDash) ctx.setLineDash([]);
     ctx.restore();
@@ -798,16 +988,16 @@ function drawInterventionLines(){
     if (!it.path || it.path.length < 2) return;
     ctx.save();
     ctx.strokeStyle = it.color || "#ffffff";
-    ctx.lineWidth = 4;
+    ctx.lineWidth = 2;
     ctx.shadowColor = it.color || "#ffffff";
     ctx.shadowBlur = 10;
     ctx.beginPath();
-    ctx.moveTo((it.path[0][0]+0.5)*CS, (it.path[0][1]+0.5)*CS);
-    for (var i = 1; i < it.path.length; i++) ctx.lineTo((it.path[i][0]+0.5)*CS, (it.path[i][1]+0.5)*CS);
+    ctx.moveTo((it.path[0][0]+0.5)*CSX, (it.path[0][1]+0.5)*CSY);
+    for (var i = 1; i < it.path.length; i++) ctx.lineTo((it.path[i][0]+0.5)*CSX, (it.path[i][1]+0.5)*CSY);
     ctx.stroke();
     var last = it.path[it.path.length - 1];
-    var tx = (last[0]+0.5)*CS + 5;
-    var ty = (last[1]+0.5)*CS - 6;
+    var tx = (last[0]+0.5)*CSX + 5;
+    var ty = (last[1]+0.5)*CSY - 6;
     var reason = (it.reason || "intervention").toLowerCase();
     ctx.shadowBlur = 0;
     ctx.fillStyle = "rgba(20,20,20,0.85)";
@@ -826,7 +1016,7 @@ function drawFlashMarks(){
     var alpha = 0.45 + 0.35 * Math.sin(now * 0.02);
     ctx.strokeStyle = "rgba(255,40,40," + alpha + ")";
     ctx.lineWidth = 3;
-    ctx.strokeRect(p[0]*CS, p[1]*CS, CS, CS);
+    ctx.strokeRect(p[0]*CSX, p[1]*CSY, CSX, CSY);
   });
 }
 function drawEventMarks(){
@@ -835,11 +1025,29 @@ function drawEventMarks(){
   eventMarks.forEach(function(m){
     var p = m.cell; if (!p) return;
     ctx.fillStyle = m.color;
-    ctx.fillRect(p[0]*CS, p[1]*CS, CS, CS);
+    ctx.fillRect(p[0]*CSX, p[1]*CSY, CSX, CSY);
     ctx.fillStyle = "#fff";
     ctx.font = "bold 9px sans-serif";
     ctx.textAlign = "center";
-    ctx.fillText((m.text||"EVENT").slice(0, 10), (p[0]+0.5)*CS, (p[1]+0.62)*CS);
+    ctx.fillText((m.text||"EVENT").slice(0, 10), (p[0]+0.5)*CSX, (p[1]+0.62)*CSY);
+  });
+}
+function drawStatusMarks(){
+  Object.keys(statusMarksBySeg).forEach(function(seg){
+    var m = statusMarksBySeg[seg];
+    if (!m || !m.cell) return;
+    var st = getHazardStatus(m.cell[0], m.cell[1]);
+    if (st !== "SOFT_BLOCKED" && st !== "HARD_BLOCKED") {
+      delete statusMarksBySeg[seg];
+      return;
+    }
+    var p = m.cell;
+    ctx.fillStyle = m.color || "rgba(20,20,20,0.75)";
+    ctx.fillRect(p[0]*CSX, p[1]*CSY, CSX, CSY);
+    ctx.fillStyle = "#fff";
+    ctx.font = "bold 9px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText((m.text||"STATE").slice(0, 10), (p[0]+0.5)*CSX, (p[1]+0.62)*CSY);
   });
 }
 function drawVoteHints(){
@@ -847,7 +1055,7 @@ function drawVoteHints(){
   voteHints = voteHints.filter(function(v){ return now < v.untilMs; });
   voteHints.forEach(function(v){
     var p = v.cell; if (!p) return;
-    var cx = (p[0]+0.5)*CS, cy = (p[1]+0.5)*CS;
+    var cx = (p[0]+0.5)*CSX, cy = (p[1]+0.5)*CSY;
     var pulse = 0.2 + 0.8 * Math.abs(Math.sin(now * 0.015));
     ctx.save();
     ctx.strokeStyle = "rgba(255,225,70," + (0.35 + pulse * 0.45) + ")";
@@ -884,12 +1092,13 @@ function nearestFreeCharger(cur){
     if (isChargerRealOccupied(cid)) return;
     if (hasBotHeadingToCharger(cid)) return;
     var p = chargerCells[cid];
-    var path = bfs(cur, p);
+    var path = bfs(cur, p, true);
     if (path && path.length && path.length < bestLen) { bestLen = path.length; best = { cid: cid, path: path }; }
   });
   return best;
 }
 function botLogicTick(){
+  if (demoStrictMode) return;
   var now = Date.now();
   var dtSec = BOT_TICK_MS / 1000;
   Object.keys(robotToRoute).forEach(function(id){
@@ -953,7 +1162,7 @@ function botLogicTick(){
 if (b.mode === "TO_CHARGER" || b.mode === "REROUTE") {
           var cid = b.targetChargerId; var pc = chargerCells[cid];
           if (pc && b.currentCell[0]===pc[0] && b.currentCell[1]===pc[1]) { b.mode = "CHARGING"; onArrivedAtCharger(id); return; }
-          var path = bfs(b.currentCell, pc);
+          var path = bfs(b.currentCell, pc, true);
           b.pathCells = path && path.length ? path.slice(1) : [];
           b.nextCell = b.pathCells[0] ? [b.pathCells[0][0],b.pathCells[0][1]] : b.currentCell;
           b.moveStartMs = now;
@@ -1010,7 +1219,7 @@ function onArrivedAtCharger(botId){
               b.targetChargerId = nextId;
               b.mode = "REROUTE";
               b.moveStartMs = Date.now();
-              var path = bfs(b.currentCell, chargerCells[nextId]);
+              var path = bfs(b.currentCell, chargerCells[nextId], true);
               b.pathCells = path && path.length ? path.slice(1) : [];
               b.nextCell = b.pathCells[0] ? [b.pathCells[0][0],b.pathCells[0][1]] : b.currentCell;
               addIntervention(botId, "CONFLICT_REROUTE", nextId, b.pathCells.slice(0, 10));
@@ -1031,6 +1240,7 @@ function redraw(){
   drawChargers();
   drawFreshness();
   drawHazards();
+  drawStatusMarks();
   drawGuideLines();
   drawRobotsDerived();
   drawFlashMarks();
@@ -1042,7 +1252,7 @@ function redraw(){
 
 canvas.addEventListener("click", function(e){
   var rect = canvas.getBoundingClientRect(); var sx = (e.clientX - rect.left) * (canvas.width/rect.width); var sy = (e.clientY - rect.top) * (canvas.height/rect.height);
-  var x = Math.floor(sx/CS); var y = Math.floor(sy/CS);
+  var x = Math.floor(sx/CSX); var y = Math.floor(sy/CSY);
   if (x>=0&&x<20&&y>=0&&y<20) { selectedCell = [x,y]; redraw(); }
 });
 
@@ -1051,136 +1261,308 @@ function doBootstrap(){
     if (!r.ok) { log("ERROR", "bootstrap failed " + r.status); return; }
     return r.json().then(function(d){
       sandboxId = (d&&d.sandbox_id) || "anon";
-      if ((d&&d.sandbox_id) === null) { capacityReached = true; log("WARN", "bootstrap sandbox_id null (capacity reached)"); pushNarrative("System capacity reached, retry later"); loadState(); initBots(); updateCards(); updateGodUiState(); setTimeout(runPolling, 60000); return; }
-      loadState(); initBots(); runPolling(); updateCards(); updateGodUiState();
+      if ((d&&d.sandbox_id) === null) { capacityReached = true; log("WARN", "bootstrap sandbox_id null (capacity reached)"); pushNarrative("System capacity reached, retry later"); loadState(); updateCards(); updateGodUiState(); setTimeout(runPolling, 60000); return; }
+      loadState(); runPolling(); updateCards(); updateGodUiState();
       pushNarrative("System ready in " + (isGodMode ? "God Mode" : "Judge Mode"));
-      pushNarrative("Use Run Judge Demo for A->B->C->D storyline");
+      // Auto-start full simulation: all robots move immediately on page load.
+      startRealRun();
     });
   }).catch(function(e){ log("ERROR", "bootstrap " + e); });
 }
 
-function scheduleFiveSecondResolution(seg, cell){
-  if (demoStrictMode) return;
+function startRealRun(){
+  botsVisible = true;
+  if (Object.keys(botState).length === 0) initBots();
+  // Ensure chargers start visually idle on page open (do not restore old lock overlays).
+  chargerOverrides = {};
+  chargerFlashUntil = {};
+  Object.keys(botState).forEach(function(id){
+    var b = botState[id]; if (!b) return;
+    if (!b.currentCell) b.currentCell = (robotSpawn[id] || [0,0]).slice(0);
+    b.mode = "PATROL";
+    b.targetChargerId = null;
+    b.negotiating = false;
+    b.moveStartMs = Date.now();
+  });
+  demoStrictMode = false;
+  demoRunning = false;
+  clearEventVisuals();
+  recomputeAllPaths();
+  renderDemoHealth();
+  redraw();
+  pushNarrative("Real run started");
+}
+
+function scheduleAutoHumanDoneForHard(seg){
+  if (!seg || autoHumanDoneScheduledBySeg[seg]) return;
+  autoHumanDoneScheduledBySeg[seg] = true;
+  var p = parseCell(seg) || [0,0];
+  pushNarrative("HARD confirmed @" + seg + ", auto human DONE in 5s");
+  markEvent([p[0], p[1]], "AUTO_HUMAN_5S", 1800, "rgba(170,90,40,0.58)");
   setTimeout(function(){
-    var rt = eventRuntimeBySeg[seg];
-    if (rt && rt.resolved) return;
-    if (!rt || !rt.voteStarted) {
-      pushNarrative("No witness vote started within 1-cell, keep SOFT blocked");
+    if (getHazardStatus(p[0], p[1]) !== "HARD_BLOCKED") {
+      delete autoHumanDoneScheduledBySeg[seg];
       return;
     }
-    var st = getHazardStatus(cell[0], cell[1]);
-    var unresolved = isTempEventBlocked(seg) || st === "SOFT_BLOCKED" || st === "HARD_BLOCKED";
-    if (!unresolved) return;
-    var successVotes = (rt && typeof rt.successVotes === "number") ? rt.successVotes : 0;
-    if (st === "HARD_BLOCKED" || successVotes >= 2) {
-      pushNarrative("5s unresolved -> trigger human handling");
-      showToast("5s timeout, human handling", true);
-      postJson("/v1/work_orders/report", {
-        work_order_id: "wo_timeout_" + Date.now() + "_" + seg,
-        work_order_status: "DONE",
-        segment_id: seg,
-        event_occurred_at: new Date().toISOString()
-      }).then(function(r){
-        log(r.ok ? "INFO" : "WARN", "POST /v1/work_orders/report " + r.status + " (timeout path)");
-        markEvent(cell, "HUMAN_FIX", 1800, "rgba(60,160,80,0.55)");
-        if (r.ok) {
-          if (rt) rt.resolved = true;
-          upsertLocalHazard(seg, "OPEN");
-          recomputeAllPaths();
-        }
-      });
-      return;
-    }
-    pushNarrative("5s unresolved -> trigger AI audit");
-    showToast("5s timeout, AI audit", true);
-    var inc = incidents.filter(function(i){ return (i.incident_status||"").toUpperCase() === "OPEN"; })[0];
-    if (inc && inc.incident_id) {
-      postJson("/v1/ai/vision_audit", { incident_id: inc.incident_id }).then(function(r){
-        log(r.status===202 ? "INFO" : "WARN", "POST /v1/ai/vision_audit " + r.status + " (timeout path)");
-        pushAuditNote("AI audit reason: unresolved after 5s | incident_id=" + inc.incident_id + " | status=" + r.status);
-      });
-    } else {
-      pushAuditNote("AI audit reason: unresolved after 5s | no OPEN incident");
-    }
-    markEvent(cell, "AI_AUDIT", 2200, "rgba(95,75,180,0.55)");
-    if (rt) rt.resolved = true;
-    upsertLocalHazard(seg, "OPEN");
-    recomputeAllPaths();
+    showToast("Auto human handling @" + seg, true);
+    postJson("/v1/work_orders/report", {
+      work_order_id: "wo_auto_" + Date.now() + "_" + seg,
+      work_order_status: "DONE",
+      segment_id: seg,
+      event_occurred_at: Date.now() / 1000
+    }).then(function(){
+      upsertLocalHazard(seg, "OPEN");
+      markEvent([p[0], p[1]], "HUMAN_DONE", 2000, "rgba(60,160,80,0.55)");
+      pushNarrative("Auto human DONE applied @" + seg);
+      delete autoHumanDoneScheduledBySeg[seg];
+    }).catch(function(){
+      upsertLocalHazard(seg, "OPEN");
+      markEvent([p[0], p[1]], "HUMAN_DONE_LOCAL", 2000, "rgba(60,160,80,0.55)");
+      pushNarrative("Auto human DONE fallback @" + seg);
+      delete autoHumanDoneScheduledBySeg[seg];
+    });
   }, 5000);
 }
 
+function scheduleFiveSecondResolution(seg, cell){
+  // NOTE: despite the name, this schedules the "8s AI audit" fallback.
+  // Requirement: the 8 seconds must start AFTER vote starts (not after SOFT creation).
+  if (demoStrictMode) return;
+  var rt0 = eventRuntimeBySeg[seg];
+  if (!rt0 || !rt0.voteStarted) return;
+  if (rt0.voteTimeoutScheduled) return;
+  rt0.voteTimeoutScheduled = true;
+  rt0.voteStartedAt = rt0.voteStartedAt || Date.now();
+  setTimeout(function(){
+    var rt = eventRuntimeBySeg[seg];
+    if (!rt) return;
+    if (rt.resolved) return;
+    // If vote never actually started, do nothing (timer should not be armed).
+    if (!rt.voteStarted) return;
+    var st = getHazardStatus(cell[0], cell[1]);
+    var unresolved = isTempEventBlocked(seg) || st === "SOFT_BLOCKED" || st === "HARD_BLOCKED";
+    if (!unresolved) { rt.resolved = true; return; }
+    var successVotes = (typeof rt.successVotes === "number") ? rt.successVotes : 0;
+    if (st === "HARD_BLOCKED") { rt.resolved = true; return; }
+    if (successVotes >= 2) { rt.resolved = true; return; }
+    // Vote not enough: one mock AI audit after 8s from vote start, then 50/50 OPEN vs HARD.
+    pushNarrative("Votes not enough 8s after vote start -> trigger mock AI audit");
+    showToast("8s after vote start, AI audit", true);
+    var n = Date.now();
+    var aiSaysBlocked = ((n + seg.length) % 2) === 0;
+    var aiReason = aiSaysBlocked
+      ? "AI reason: lane remains blocked from witness inconsistency"
+      : "AI reason: no persistent blockage seen in recent evidence";
+    markEvent(cell, "AI_AUDIT", 2200, "rgba(95,75,180,0.55)");
+    pushAuditNote(aiReason + " | decision=" + (aiSaysBlocked ? "HARD_BLOCKED" : "OPEN"));
+    if (aiSaysBlocked) {
+      upsertLocalHazard(seg, "HARD_BLOCKED");
+      markEvent(cell, "HARD", 2200, "rgba(200,80,80,0.65)");
+      pushNarrative("Mock AI decision -> HARD_BLOCKED @" + seg);
+    } else {
+      upsertLocalHazard(seg, "OPEN");
+      markEvent(cell, "OPEN", 2200, "rgba(70,160,90,0.55)");
+      pushNarrative("Mock AI decision -> OPEN @" + seg);
+    }
+    recomputeAllPaths();
+    rt.resolved = true;
+  }, 8000);
+}
+
 // God buttons — all check isGodMode and godToken before any POST
-function doObstacle(){
-  if (!isGodMode) return;
-  var cell = selectedCell || [9,9]; var seg = cellId(cell[0], cell[1]);
-  var minDistReq = demoStrictMode ? 1 : EVENT_MIN_ROBOT_DIST;
-  if (!isCellFarFromAllBots(cell, minDistReq)) { log("WARN", "Event rejected: too close to robots"); showToast("Event too close to robots", true); return; }
-  pauseAllBots(EVENT_PRE_FREEZE_MS);
-  markEvent(cell, "OBSTACLE", 3000, "rgba(200,60,60,0.55)");
-  flashMarks.push({ cell: [cell[0], cell[1]], untilMs: Date.now() + 3000 });
-  tempEventBlocks[seg] = Date.now() + EVENT_CLEAR_MS;
-  eventRuntimeBySeg[seg] = { startedAt: Date.now(), candidateVotes: 0, successVotes: 0, voteStarted: false, clearScheduled: false, resolved: false };
-  upsertLocalHazard(seg, "SOFT_BLOCKED");
-  pushNarrative("Hazard state -> SOFT_BLOCKED @" + seg);
-  pushNarrative("Step A: obstacle detected at " + seg + ", witness voting starts");
-  showToast("Obstacle detected, witnesses voting", true);
-  // Demo mode keeps anchor positions; no sudden witness teleport around obstacle.
-  var keys = getNearbyWitnesses(cell);
-  eventRuntimeBySeg[seg].candidateVotes = keys.length;
-  if (!keys.length) {
-    pushNarrative("No nearby witness within 1-cell, keep SOFT_BLOCKED and wait for manual trigger");
-    pushAuditNote("AI audit skipped: witness count=0 within 1-cell");
+function pickSoftHazardCellForRandomEvent(){
+  var cells = [];
+  for (var y = 0; y < GH; y++) {
+    for (var x = 0; x < GW; x++) {
+      // allow SOFT event anywhere except buildings/chargers/blocked; only distance guard applies
+      if (isBuilding(x, y) || isChargerPad(x, y) || isBlocked(x, y)) continue;
+      var minD = 999;
+      Object.keys(robotToRoute).forEach(function(id){
+        var b = botState[id];
+        var p = (b && b.currentCell) ? b.currentCell : (robotSpawn[id] || null);
+        if (!p) return;
+        var d = manhattan([x, y], p);
+        if (d < minD) minD = d;
+      });
+      // distance constraint: must be within 5 cells, but not adjacent
+      if (minD >= 2 && minD < 5) cells.push([x, y]);
+    }
+  }
+  if (!cells.length) return null;
+  return cells[Math.floor(Math.random() * cells.length)];
+}
+function listFreeChargers(excludeCid){
+  var now = Date.now();
+  return Object.keys(chargerCells).filter(function(cid){
+    if (excludeCid && cid === excludeCid) return false;
+    if (isChargerRealOccupied(cid)) return false;
+    if (hasBotHeadingToCharger(cid)) return false;
+    var ov = chargerOverrides[cid];
+    if (ov && ov.expiresAtMs && ov.expiresAtMs > now) return false;
+    return true;
+  });
+}
+function assignBotToCharger(botId, cid, mode){
+  var b = botState[botId] || (botState[botId] = {});
+  var cur = (b.currentCell || robotSpawn[botId] || [0,0]).slice(0);
+  b.currentCell = [cur[0], cur[1]];
+  b.mode = mode || "TO_CHARGER";
+  b.targetChargerId = cid;
+  b.negotiating = false;
+  var path = bfs(cur, chargerCells[cid], true);
+  b.pathCells = path && path.length ? path.slice(1) : [];
+  b.nextCell = b.pathCells[0] ? [b.pathCells[0][0], b.pathCells[0][1]] : cur.slice(0);
+  b.moveStartMs = Date.now();
+}
+function triggerChargerLockEvent(){
+  var freeNow = listFreeChargers(null);
+  if (!freeNow.length) {
+    log("WARN", "Random event skipped: no free charger");
+    showToast("Random event skipped (no free charger)", true);
     return;
   }
-  var idx = 0;
+  var lockedCid = freeNow[Math.floor(Math.random() * freeNow.length)];
+  chargerOverrides[lockedCid] = { state: "OCCUPIED", expiresAtMs: Date.now() + 7000 };
+  chargerFlashUntil[lockedCid] = Date.now() + 3000;
+  markEvent(chargerCells[lockedCid], "LOCKED", 2600, "rgba(180,60,60,0.55)");
+  pushNarrative("Random Event: charger locked @" + lockedCid);
+  showToast("Random event: charger locked", true);
+
+  var botIds = Object.keys(robotToRoute);
+  if (!botIds.length) return;
+  var victim = botIds[Math.floor(Math.random() * botIds.length)];
+  assignBotToCharger(victim, lockedCid, "TO_CHARGER");
+  addIntervention(victim, "CHARGING_DISPATCH", lockedCid, (botState[victim].pathCells || []).slice(0, 10));
+  pushNarrative("Dispatch " + victim + " -> " + lockedCid + " (locked target)");
+
   setTimeout(function(){
-    function sendOne(){
-      if (idx >= keys.length) return;
-      var who = keys[idx];
-      if (demoStrictMode) {
-        if (!isWitnessWithinOneCell(who, cell)) { idx++; setTimeout(sendOne, 220); return; }
-        if (eventRuntimeBySeg[seg]) { eventRuntimeBySeg[seg].voteStarted = true; }
-        ensureEventClearScheduled(seg);
-        addVoteHint(who, cell);
-        pushNarrative(who + " vote -> BLOCKED @" + seg);
-        showToast(who + " vote", false);
-        if (eventRuntimeBySeg[seg]) eventRuntimeBySeg[seg].successVotes += 1;
-        idx++;
-        setTimeout(sendOne, 220);
-        return;
-      }
+    var b = botState[victim];
+    if (!b) return;
+    var alts = listFreeChargers(lockedCid);
+    if (!alts.length) {
+      pushNarrative("Reroute skipped: no alternate charger for " + victim);
+      showToast("No alternate charger for reroute", true);
+      return;
+    }
+    var cur = (b.currentCell || robotSpawn[victim] || [0,0]).slice(0);
+    var best = alts.map(function(cid){ return { cid: cid, d: manhattan(cur, chargerCells[cid]) }; })
+      .sort(function(a,b2){ return a.d - b2.d; })[0];
+    assignBotToCharger(victim, best.cid, "REROUTE");
+    addIntervention(victim, "CONFLICT_REROUTE", best.cid, (botState[victim].pathCells || []).slice(0, 10));
+    markEvent(chargerCells[best.cid], "REROUTE", 2200, "rgba(90,120,200,0.50)");
+    pushNarrative("JoyGate reroute after 2s: " + victim + " -> " + best.cid);
+    showToast("JoyGate reroute executed", false);
+  }, 2000);
+}
+function doSoftHazardEventAt(cell){
+  var seg = cellId(cell[0], cell[1]);
+  var witnessWatchMs = SOFT_WITNESS_DETECT_MS;
+  // Avoid global stutter: only pause bots near the soft event.
+  pauseBotsNearCell(cell, 3, EVENT_PRE_FREEZE_MS);
+  statusMarksBySeg[seg] = { cell: [cell[0], cell[1]], text: "SOFT", color: "rgba(200,60,60,0.55)" };
+  flashMarks.push({ cell: [cell[0], cell[1]], untilMs: Date.now() + 3000 });
+  tempEventBlocks[seg] = Date.now() + witnessWatchMs;
+  eventRuntimeBySeg[seg] = { startedAt: Date.now(), candidateVotes: 0, successVotes: 0, voteStarted: false, clearScheduled: false, resolved: false, voteDoneByWitness: {}, voteInFlightByWitness: {} };
+  upsertLocalHazard(seg, "SOFT_BLOCKED");
+  ensureEventClearScheduled(seg, witnessWatchMs);
+  pushNarrative("Hazard state -> SOFT_BLOCKED @" + seg);
+  pushNarrative("Step A: SOFT detected at " + seg + ", witness voting starts");
+  showToast("SOFT detected, witnesses voting", true);
+  function tryDispatchWitnessVotes(){
+    var rt = eventRuntimeBySeg[seg];
+    if (!rt || rt.resolved) return;
+    var keys = getNearbyWitnesses(cell);
+    rt.candidateVotes = keys.length;
+    if (!keys.length) return;
+    keys.forEach(function(who, idx){
+      if (rt.voteDoneByWitness[who]) return;
+      if (rt.voteInFlightByWitness[who]) return;
+      rt.voteInFlightByWitness[who] = true;
       postJson("/v1/witness/segment_respond", { segment_id: seg, segment_state: "BLOCKED", points_event_id: "pe_ui_"+Date.now()+"_"+idx }, { "X-JoyKey": who })
         .then(function(r){
           log(r.status>=400?"WARN":"INFO", "POST /v1/witness/segment_respond " + r.status);
-          if (r.status === 403) { log("WARN", "witness allowlist mismatch"); return; }
-          if (r.ok) {
-            if (!isWitnessWithinOneCell(who, cell)) { idx++; setTimeout(sendOne, 250); return; }
-            if (eventRuntimeBySeg[seg]) { eventRuntimeBySeg[seg].voteStarted = true; }
-            ensureEventClearScheduled(seg);
-            addVoteHint(who, cell);
-            pushNarrative(who + " vote -> BLOCKED @" + seg);
-            showToast(who + " vote", false);
-            if (eventRuntimeBySeg[seg]) eventRuntimeBySeg[seg].successVotes += 1;
-            idx++;
-            setTimeout(sendOne, 250);
+          if (!r.ok) return;
+          if (!isWitnessWithinOneCell(who, cell)) return;
+          var rt2 = eventRuntimeBySeg[seg];
+          if (!rt2 || rt2.resolved) return;
+          rt2.voteDoneByWitness[who] = true;
+          if (!rt2.voteStarted) {
+            rt2.voteStarted = true;
+            rt2.voteStartedAt = Date.now();
+            // Arm the 8s fallback timer only after vote starts.
+            scheduleFiveSecondResolution(seg, cell);
           }
+          ensureEventClearScheduled(seg, witnessWatchMs);
+          addVoteHint(who, cell);
+          pushNarrative(who + " vote -> BLOCKED @" + seg);
+          showToast(who + " vote", false);
+          rt2.successVotes += 1;
+          var succNow = rt2.successVotes || 0;
+          if (succNow >= 2 && !rt2.resolved) {
+            upsertLocalHazard(seg, "HARD_BLOCKED");
+            pushNarrative("Hazard state -> HARD_BLOCKED @" + seg);
+            pushNarrative("Witness threshold met, hazard escalated");
+            rt2.resolved = true;
+          }
+        })
+        .finally(function(){
+          var rt3 = eventRuntimeBySeg[seg];
+          if (rt3 && rt3.voteInFlightByWitness) delete rt3.voteInFlightByWitness[who];
         });
-    }
-    sendOne();
-  }, 200);
+    });
+  }
+
+  // Witness selection must not be a one-shot at SOFT creation time.
+  // If no witness is within 2 cells now, keep checking for a short window and start voting when one enters range.
+  var keys0 = getNearbyWitnesses(cell);
+  if (eventRuntimeBySeg[seg]) eventRuntimeBySeg[seg].candidateVotes = keys0.length;
+  if (!keys0.length) pushNarrative("No nearby witness within 2-cell yet; keep detecting for 30s");
+  tryDispatchWitnessVotes();
+  var startedWaitAt = Date.now();
+  var waitTimer = setInterval(function(){
+    var rt3 = eventRuntimeBySeg[seg];
+    if (!rt3 || rt3.resolved) { clearInterval(waitTimer); return; }
+    if (Date.now() - startedWaitAt > witnessWatchMs) { clearInterval(waitTimer); return; }
+    tryDispatchWitnessVotes();
+  }, 320);
   setTimeout(function(){
+    var rt4 = eventRuntimeBySeg[seg];
+    if (rt4 && rt4.resolved) return;
     var succ = (eventRuntimeBySeg[seg] && typeof eventRuntimeBySeg[seg].successVotes === "number") ? eventRuntimeBySeg[seg].successVotes : 0;
     if (succ < 2) {
-      pushAuditNote("AI audit reason: successful witness votes=" + succ + ", unresolved fallback after 5s");
-      pushNarrative("Votes insufficient, waiting 5s fallback");
-    } else {
-      upsertLocalHazard(seg, "HARD_BLOCKED");
-      markEvent(cell, "HARD", 2600, "rgba(200,80,80,0.65)");
-      pushNarrative("Hazard state -> HARD_BLOCKED @" + seg);
-      pushNarrative("Witness threshold met, hazard escalated");
+      pushAuditNote("AI audit pending: successful witness votes=" + succ + " (will trigger 8s after vote start if still insufficient)");
+      pushNarrative("Votes insufficient, waiting (8s after vote start) fallback");
     }
   }, 2200);
-  scheduleFiveSecondResolution(seg, cell);
+}
+function doSoftHazard(){
+  if (!isGodMode) return;
+  var cell = pickSoftHazardCellForRandomEvent();
+  if (!cell) {
+    log("WARN", "Generate SOFT skipped: no valid cell at distance 2-3");
+    showToast("Generate SOFT skipped (no valid cell)", true);
+    return;
+  }
+  selectedCell = [cell[0], cell[1]];
+  doSoftHazardEventAt(cell);
+}
+function doLockCharger(){
+  if (!isGodMode) return;
+  triggerChargerLockEvent();
+}
+function doObstacle(){
+  if (!isGodMode) return;
+  if (Math.random() < 0.5) {
+    triggerChargerLockEvent();
+    return;
+  }
+  var cell = pickSoftHazardCellForRandomEvent();
+  if (!cell) {
+    triggerChargerLockEvent();
+    return;
+  }
+  selectedCell = [cell[0], cell[1]];
+  doSoftHazardEventAt(cell);
 }
 function doCharging(){
   if (!isGodMode) return;
@@ -1188,7 +1570,7 @@ function doCharging(){
   var b = botState[bid]; if (!b) return;
   b.mode = "TO_CHARGER"; b.targetChargerId = cid;
   var cur = b.currentCell || robotSpawn[bid] || [0,0];
-  var path = bfs(cur, chargerCells[cid]);
+  var path = bfs(cur, chargerCells[cid], true);
   b.pathCells = path && path.length ? path.slice(1) : [];
   b.nextCell = b.pathCells[0] ? [b.pathCells[0][0],b.pathCells[0][1]] : cur;
   b.moveStartMs = Date.now();
@@ -1197,26 +1579,6 @@ function doCharging(){
   pushNarrative("Step B: dispatch charging task " + bid + " -> " + cid);
   showToast("Charging dispatch started", false);
   log("INFO", "Charging dispatch: " + bid + " -> " + cid);
-}
-function doVision(){
-  if (!isGodMode) return;
-  var inc = incidents.filter(function(i){ return (i.incident_status||"").toUpperCase() === "OPEN"; })[0];
-  if (!inc || !inc.incident_id) { log("WARN", "No OPEN incident for vision audit"); return; }
-  var reason = "manual trigger from control panel";
-  pushNarrative("Step C: AI audit requested");
-  showToast("AI audit requested", false);
-  postJson("/v1/ai/vision_audit", { incident_id: inc.incident_id }).then(function(r){
-    log(r.status===202?"INFO":"WARN", "POST /v1/ai/vision_audit " + r.status);
-    pushAuditNote("AI audit reason: " + reason + " | incident_id=" + inc.incident_id + " | status=" + r.status);
-    markEvent(selectedCell || [9,9], "AI_AUDIT", 2400, "rgba(95,75,180,0.55)");
-    r.text().then(function(t){
-      showEvidenceModal(
-        "Vision Audit Evidence",
-        "POST /v1/ai/vision_audit\nincident_id=" + inc.incident_id + "\nreason=" + reason + "\nstatus=" + r.status + "\n\n" + (t || "")
-      );
-    });
-    if (r.status !== 202) log("WARN", "Vision unconfigured or failed");
-  });
 }
 function doWorkOrder(){
   if (!isGodMode) return;
@@ -1227,144 +1589,21 @@ function doWorkOrder(){
   if (!haz || (haz.hazard_status||"").toUpperCase() !== "HARD_BLOCKED") { log("WARN", "Selected cell is not HARD_BLOCKED"); return; }
   pushNarrative("Step D: human work order submitted for " + seg);
   showToast("Human fix submitted", false);
-  postJson("/v1/work_orders/report", { work_order_id: "wo_ui_"+Date.now()+"_"+seg, work_order_status: "DONE", segment_id: seg, event_occurred_at: new Date().toISOString() })
+  postJson("/v1/work_orders/report", { work_order_id: "wo_ui_"+Date.now()+"_"+seg, work_order_status: "DONE", segment_id: seg, event_occurred_at: Date.now() / 1000 })
     .then(function(r){ log(r.ok?"INFO":"WARN", "POST /v1/work_orders/report " + r.status); markEvent([selectedCell[0], selectedCell[1]], "HUMAN_FIX", 2200, "rgba(60,160,80,0.55)"); if (r.ok) setTimeout(function(){ poll("/v1/snapshot","snapshot",function(d){ snapshot = d || snapshot; redraw(); }); }, 500); });
 }
 
-async function runJudgeDemo(){
-  if (!isGodMode) return;
-  if (demoRunning) return;
-  var demoDirector = { stage: "INIT", stageStartedAt: Date.now() };
-  function enterStage(name){
-    demoDirector.stage = name;
-    demoDirector.stageStartedAt = Date.now();
-    pushNarrative("Demo stage: " + name);
-  }
-  demoRunning = true;
-  try {
-    demoStrictMode = true;
-    clearDemoScene();
-    resetBotsToJudgeDemoAnchors();
-    var demoObstacleCell = pickDemoObstacleCell();
-    selectedCell = [demoObstacleCell[0], demoObstacleCell[1]];
-    redraw();
-    enterStage("A_OBSTACLE_VOTE");
-    pushNarrative("Step A: obstacle + witness votes");
-    log("INFO", "Judge demo step A: obstacle");
-    doObstacle();
-    var seg = cellId(selectedCell[0], selectedCell[1]);
-    var aRes = await waitForDemoStage(3200, 9000, function(){
-      var rt = eventRuntimeBySeg[seg];
-      var votes = (rt && typeof rt.successVotes === "number") ? rt.successVotes : 0;
-      var st = getHazardStatus(selectedCell[0], selectedCell[1]);
-      return votes >= 2 || st === "HARD_BLOCKED";
-    });
-    if (aRes.timedOut) pushNarrative("Stage A timeout fallback, continue storyline");
+// Judge demo script removed; keep full real-run mode only.
 
-    // Deterministic charging storyline: dispatch first, then delayed conflict/reroute.
-    enterStage("B_CHARGING_DISPATCH");
-    pauseAllBots(EVENT_PRE_FREEZE_MS);
-    var cb = JUDGE_DEMO_POINTS.chargingBotId;
-    var cc = JUDGE_DEMO_POINTS.chargerId;
-    var b = botState[cb];
-    var bStart = null;
-    if (b) {
-      bStart = (b.currentCell || robotSpawn[cb] || [1,12]).slice(0);
-      b.battery = Math.min(b.battery || 0.2, 0.18);
-      b.mode = "TO_CHARGER";
-      b.targetChargerId = cc;
-      var p = bfs(bStart, chargerCells[cc]);
-      b.pathCells = p && p.length ? p.slice(1) : [];
-      b.nextCell = b.pathCells[0] ? [b.pathCells[0][0], b.pathCells[0][1]] : bStart.slice(0);
-      b.moveStartMs = Date.now();
-      addIntervention(cb, "LOW_BATTERY", cc, b.pathCells.slice(0, 10));
-      pushNarrative("Step B: low battery robot " + cb + " heads to " + cc);
-      showToast("Low battery dispatch to charger-001", false);
-    }
-
-    pushNarrative("Step B: charging dispatch");
-    log("INFO", "Judge demo step B: charging dispatch");
-    await waitForDemoStage(1800, 6000, function(){
-      var bot0 = botState[cb];
-      if (!bot0 || !bot0.currentCell) return false;
-      return bStart ? manhattan(bot0.currentCell, bStart) >= 1 : false;
-    });
-    if (demoRunning && demoDirector.stage === "B_CHARGING_DISPATCH") {
-      var botNow = botState[cb];
-      if (botNow && botNow.currentCell) {
-        chargerFlashUntil[cc] = Date.now() + 3000;
-        markEvent(chargerCells[cc], "409", 2800, "rgba(180,60,60,0.55)");
-        pushNarrative("Step B: charger-001 occupied on route, reroute to charger-002");
-        showToast("charger-001 occupied, rerouting", true);
-        botNow.targetChargerId = "charger-002";
-        botNow.mode = "REROUTE";
-        var p2 = bfs(botNow.currentCell, chargerCells["charger-002"]);
-        botNow.pathCells = p2 && p2.length ? p2.slice(1) : [];
-        botNow.nextCell = botNow.pathCells[0] ? [botNow.pathCells[0][0], botNow.pathCells[0][1]] : botNow.currentCell.slice(0);
-        botNow.moveStartMs = Date.now();
-        addIntervention(cb, "CONFLICT_REROUTE", "charger-002", botNow.pathCells.slice(0, 10));
-      }
-    }
-    var bRes = await waitForDemoStage(3600, 11000, function(){
-      var bot = botState[cb];
-      if (!bot) return true;
-      var cur = bot.currentCell || robotSpawn[cb] || [0,0];
-      var movedEnough = bStart ? manhattan(cur, bStart) >= 4 : false;
-      return movedEnough || bot.mode === "REROUTE" || bot.mode === "CHARGING";
-    });
-    if (bRes.timedOut) pushNarrative("Stage B timeout fallback, continue storyline");
-
-    var rtForAudit = eventRuntimeBySeg[seg];
-    if (rtForAudit && rtForAudit.voteStarted) {
-      enterStage("C_AI_AUDIT");
-      pushNarrative("Step C: AI audit");
-      log("INFO", "Judge demo step C: AI audit");
-      pauseAllBots(EVENT_PRE_FREEZE_MS);
-      pushAuditNote("AI audit reason: single/insufficient witness confidence");
-      markEvent(selectedCell, "AI_AUDIT", 5200, "rgba(95,75,180,0.55)");
-      var cReady = false;
-      setTimeout(function(){
-        showEvidenceModal("Vision Audit Evidence", "AI review completed.\nreason=single/insufficient witness confidence\nstatus=202");
-        cReady = true;
-      }, 4200);
-      var cRes = await waitForDemoStage(6200, 12000, function(){ return cReady; });
-      if (cRes.timedOut) pushNarrative("Stage C timeout fallback, continue storyline");
-    } else {
-      pushNarrative("Step C skipped: no witness vote/wit triggered yet");
-      pushAuditNote("AI audit skipped: no witness vote/wit trigger");
-    }
-
-    enterStage("D_HUMAN_FIX");
-    pushNarrative("Step D: human fix");
-    log("INFO", "Judge demo step D: human fix");
-    upsertLocalHazard(cellId(selectedCell[0], selectedCell[1]), "OPEN");
-    markEvent(selectedCell, "HUMAN_FIX", 2000, "rgba(60,160,80,0.55)");
-    var dRes = await waitForDemoStage(2400, 7000, function(){
-      return getHazardStatus(selectedCell[0], selectedCell[1]) === "OPEN";
-    });
-    if (dRes.timedOut) pushNarrative("Stage D timeout fallback, force complete");
-
-    enterStage("OUTRO");
-    await waitForDemoStage(1500, 2200, function(){ return true; });
-    pushNarrative("Judge demo completed");
-    showToast("Judge demo completed", false);
-    log("INFO", "Judge demo completed");
-  } finally {
-    demoStrictMode = false;
-    demoRunning = false;
-  }
-}
-
-document.getElementById("btnJudgeDemo").addEventListener("click", function(){ runJudgeDemo(); });
-document.getElementById("btnObstacle").addEventListener("click", doObstacle);
+document.getElementById("btnSoft").addEventListener("click", doSoftHazard);
+document.getElementById("btnLockCharger").addEventListener("click", doLockCharger);
 document.getElementById("btnCharging").addEventListener("click", doCharging);
-document.getElementById("btnVision").addEventListener("click", doVision);
-document.getElementById("btnWorkOrder").addEventListener("click", doWorkOrder);
 document.getElementById("btnCloseEvidence").addEventListener("click", hideEvidenceModal);
 
 function saveState(){
   try {
-    var toSave = { selectedCell: selectedCell, botState: {}, chargerOverrides: chargerOverrides };
+    // Do not persist chargerOverrides: chargers should be idle on fresh page open.
+    var toSave = { selectedCell: selectedCell, botState: {} };
     Object.keys(botState).forEach(function(id){
       var b = botState[id]; if (!b) return;
       toSave.botState[id] = { currentCell: b.currentCell, nextCell: b.nextCell, mode: b.mode, targetChargerId: b.targetChargerId, pathCells: b.pathCells, routeWaypointIndex: b.routeWaypointIndex };
@@ -1377,7 +1616,8 @@ function loadState(){
     var raw = localStorage.getItem("joygate_ui_state_"+sandboxId) || "{}";
     var o = JSON.parse(raw);
     if (o.selectedCell) selectedCell = o.selectedCell;
-    if (o.chargerOverrides && typeof o.chargerOverrides === "object") chargerOverrides = o.chargerOverrides;
+    // Always start with empty overrides; do not restore old lock overlays.
+    chargerOverrides = {};
     if (o.botState && typeof o.botState === "object") { Object.keys(o.botState).forEach(function(id){ var saved = o.botState[id]; if (saved && robotToRoute[id]) { botState[id] = botState[id] || {}; botState[id].currentCell = saved.currentCell; botState[id].nextCell = saved.nextCell; botState[id].mode = saved.mode || "PATROL"; botState[id].targetChargerId = saved.targetChargerId; botState[id].pathCells = saved.pathCells || []; botState[id].routeWaypointIndex = saved.routeWaypointIndex|0; botState[id].lerpT = 0; } }); }
   } catch(e) {}
 }
@@ -1424,30 +1664,15 @@ setInterval(function(){
   if (!isGodMode || demoStrictMode) return;
   pauseAllBots(200);
   setTimeout(function(){
-    if (Math.random() < 0.7) {
-      var y = (Math.random() < 0.5) ? 16 : 17;
-      var cands = [];
-      for (var x = 1; x <= 18; x++) {
-        if (isRoad(x, y) && !isBuilding(x, y)) cands.push([x, y]);
-      }
-      if (!cands.length) return;
-      var cell = cands[Math.floor(Math.random() * cands.length)];
-      selectedCell = [cell[0], cell[1]];
-      doObstacle();
-      log("INFO", "[Auto] Obstacle created at " + cellId(cell[0], cell[1]));
-      pushNarrative("[Auto] Obstacle created at " + cellId(cell[0], cell[1]));
-      markEvent(cell, "AUTO_OBS", 2600, "rgba(185,40,40,0.60)");
+    if (Math.random() < 0.5) {
+      doSoftHazard();
+      pushNarrative("[Auto] Generate SOFT");
     } else {
-      var order = ["charger-001","charger-002","charger-003","charger-004","charger-005"];
-      var cid = order[Math.floor(Math.random() * order.length)];
-      chargerFlashUntil[cid] = Date.now() + 3000;
-      postJson("/v1/incidents/report_blocked", { charger_id: cid, incident_type: "BLOCKED_BY_OTHER" })
-        .then(function(r){ log("INFO", "[Auto] Charger blocked incident created " + cid + " (" + r.status + ")"); });
-      pushNarrative("[Auto] Charger blocked incident created " + cid);
-      markEvent(chargerCells[cid], "AUTO_BLOCK", 2600, "rgba(185,40,40,0.60)");
+      doLockCharger();
+      pushNarrative("[Auto] Lock Charger");
     }
   }, 200);
-}, 20000);
+}, 15000);
 loadGodToken();
 updateGodUiState();
 doBootstrap();
