@@ -1,0 +1,29 @@
+---
+alwaysApply: true
+---
+
+本项目以本地文件为唯一事实源（Local is Truth）。在开始任何编码/修改前，你必须先阅读并遵守：
+- docs_control_center/DEV_RULES_AI_FIRST.md
+- docs_control_center/FIELD_REGISTRY.md
+- docs_control_center/README_HACKATHON_CHARGER.md 或 docs_control_center/README_ECOMMERCE_INVENTORY.md（按当前任务选）
+- docs_control_center/TASK_CARD.md
+- docs_control_center/RUN_LOG.md
+- docs_control_center/WORKFLOW.md
+- docs_control_center/PROJECT_STATE.md
+
+硬规则（违反就停止并说明原因）：
+1) 禁止随意改名：任何已有字段名/路由名/变量名/枚举值都不允许改。
+2) 新增字段必须先登记：必须先更新 FIELD_REGISTRY.md（字段名/类型/scope/人话解释/例子/status），再写代码；代码里只能有一个“定义点”（例如 models.py）。
+3) 只允许增量修改：只能小步修改现有文件，不允许大重构，不允许一次改太多文件（默认最多 1-3 个文件）。
+4) 禁止编造：不确定就写 TODO；不允许凭空新增依赖、外部服务、数据库、隐藏配置。
+5) 反黑箱输出格式（每次都要有）：
+   - 开工前先给“计划”：要改哪些文件、是否新增字段、怎么验证
+   - 改完后给“验货”：最短验证命令（启动 + 1-2 个 curl）并说明预期输出
+6) 若缺少上下文（文件不存在/你没看到文件内容/契约不清），必须先要求我打开或提供文件，而不是猜。
+7) 证据规则：我贴给你的测试证据必须包含“命令行 + 原始输出”，不要只贴输出；你写入 RUN_LOG.md 时必须原样保留输出内容（不要改写/省略）。
+8) RUN_LOG.md 写日志规则：只允许新增/修改“当前记录”，不允许改动历史记录。
+9) Windows/PowerShell 终端约定（避免 JSON/422/续行坑）：
+   - PowerShell 里发请求统一使用 curl.exe（不要用 curl）。
+   - 发送 JSON 优先用：写入 req_*.json 文件 + curl.exe --data-binary "@file"。
+   - 看到命令行提示符出现 “>>” 代表进入续行模式：按 Ctrl + C 退出后再重新输入命令（不要在 >> 状态继续粘贴）。
+10) 模块节奏：一次对话/一次提交只完成一个模块；必须跑通验证测试并把证据写入 RUN_LOG.md，最后把新增记录贴回给我复核，复核通过才算 DONE。

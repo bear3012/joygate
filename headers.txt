@@ -1,0 +1,7 @@
+HTTP/1.1 200 OK
+date: Sun, 08 Feb 2026 06:23:46 GMT
+server: uvicorn
+content-length: 99
+content-type: application/json
+set-cookie: joygate_sandbox=e6b8d162ea114fb3; HttpOnly; Max-Age=604800; Path=/; SameSite=lax
+

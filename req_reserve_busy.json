@@ -1,0 +1,6 @@
+﻿{
+  "resource_type": "CHARGER",
+  "resource_id": "charger-001",
+  "joykey": "jk2",
+  "action": "HOLD"
+}

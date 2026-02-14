@@ -1,0 +1,10 @@
+---
+globs: docs_control_center/**
+alwaysApply: false
+---
+
+1) 这些文件是项目口径与审计证据，不允许随意重写或删减，只允许追加或小幅修订。
+2) FIELD_REGISTRY.md：新增字段必须同时更新对象条目 + Change Log 表；不得改已有字段名。
+3) README_*：接口契约的字段名必须与 FIELD_REGISTRY.md 完全一致。
+4) TASK_CARD.md：只允许更新“人话目标”和勾选完成标准，不允许加入新接口/新字段（除非同时登记）。
+5) RUN_LOG.md：只允许追加新的运行记录块，不允许删除旧证据。

@@ -1,0 +1,332 @@
+﻿=== RUN 1 ===
+
+{"openapi":"3.1.0","info":{"title":"JoyGate v0.3 - Hackathon Charger","version":"0.1.0"},"paths":{"/v1/incidents":{"get
+":{"summary":"V1 Incidents","description":"杩斿洖浜嬩欢鍒楄〃锛屼弗鏍肩鍚?FIELD_REGISTRY IncidentList锛歿 incidents: [...] }銆?,"operati
+onId":"v1_incidents_v1_incidents_get","parameters":[{"name":"incident_id","in":"query","required":false,"schema":{"anyO
+f":[{"type":"string"},{"type":"null"}],"title":"Incident Id"}},{"name":"incident_type","in":"query","required":false,"s
+chema":{"anyOf":[{"type":"string"},{"type":"null"}],"title":"Incident Type"}},{"name":"incident_status","in":"query","r
+equired":false,"schema":{"anyOf":[{"type":"string"},{"type":"null"}],"title":"Incident Status"}},{"name":"charger_id","
+in":"query","required":false,"schema":{"anyOf":[{"type":"string"},{"type":"null"}],"title":"Charger Id"}},{"name":"segm
+ent_id","in":"query","required":false,"schema":{"anyOf":[{"type":"string"},{"type":"null"}],"title":"Segment Id"}}],"re
+sponses":{"200":{"description":"Successful Response","content":{"application/json":{"schema":{"$ref":"#/components/sche
+mas/IncidentListOut"}}}},"422":{"description":"Validation Error","content":{"application/json":{"schema":{"$ref":"#/com
+ponents/schemas/HTTPValidationError"}}}}}}},"/v1/incidents/report_blocked":{"post":{"summary":"V1 Incidents Report Bloc
+ked","description":"鍒涘缓涓€鏉?blocked 绫讳簨浠讹紝杩斿洖 incident_id锛涗弗鏍肩鍚?FIELD_REGISTRY IncidentsReportBlockedOK銆?,"operationId"
+:"v1_incidents_report_blocked_v1_incidents_report_blocked_post","requestBody":{"content":{"application/json":{"schema":
+{"$ref":"#/components/schemas/ReportBlockedIn"}}},"required":true},"responses":{"200":{"description":"Successful Respon
+se","content":{"application/json":{"schema":{"$ref":"#/components/schemas/IncidentsReportBlockedOut"}}}},"422":{"descri
+ption":"Validation Error","content":{"application/json":{"schema":{"$ref":"#/components/schemas/HTTPValidationError"}}}
+}}}},"/v1/incidents/update_status":{"post":{"summary":"V1 Incidents Update Status","description":"鏇存柊浜嬩欢鐘舵€侊紱涓ユ牸绗﹀悎 FIE
+LD_REGISTRY POST /v1/incidents/update_status锛屾垚鍔?204 No Content銆?,"operationId":"v1_incidents_update_status_v1_incident
+s_update_status_post","requestBody":{"content":{"application/json":{"schema":{"$ref":"#/components/schemas/UpdateStatus
+In"}}},"required":true},"responses":{"200":{"description":"Successful Response","content":{"application/json":{"schema"
+:{}}}},"422":{"description":"Validation Error","content":{"application/json":{"schema":{"$ref":"#/components/schemas/HT
+TPValidationError"}}}}}}},"/v1/reserve":{"post":{"summary":"V1 Reserve","operationId":"v1_reserve_v1_reserve_post","req
+uestBody":{"content":{"application/json":{"schema":{"$ref":"#/components/schemas/ReserveRequestIn"}}},"required":true},
+"responses":{"200":{"description":"Successful Response","content":{"application/json":{"schema":{}}}},"422":{"descripti
+on":"Validation Error","content":{"application/json":{"schema":{"$ref":"#/components/schemas/HTTPValidationError"}}}}}}
+},"/v1/oracle/start_charging":{"post":{"summary":"Oracle Start","operationId":"oracle_start_v1_oracle_start_charging_po
+st","requestBody":{"content":{"application/json":{"schema":{"$ref":"#/components/schemas/OracleEventIn"}}},"required":t
+rue},"responses":{"200":{"description":"Successful Response","content":{"application/json":{"schema":{}}}},"422":{"desc
+ription":"Validation Error","content":{"application/json":{"schema":{"$ref":"#/components/schemas/HTTPValidationError"}
+}}}}}},"/v1/oracle/stop_charging":{"post":{"summary":"Oracle Stop","operationId":"oracle_stop_v1_oracle_stop_charging_p
+ost","requestBody":{"content":{"application/json":{"schema":{"$ref":"#/components/schemas/OracleEventIn"}}},"required":
+true},"responses":{"200":{"description":"Successful Response","content":{"application/json":{"schema":{}}}},"422":{"des
+cription":"Validation Error","content":{"application/json":{"schema":{"$ref":"#/components/schemas/HTTPValidationError"
+}}}}}}},"/v1/snapshot":{"get":{"summary":"V1 Snapshot","description":"杩斿洖褰撳墠 chargers / holds 蹇収锛屽瓧娈典弗鏍肩鍚?FIELD_REGIS
+TRY SnapshotOK銆?,"operationId":"v1_snapshot_v1_snapshot_get","responses":{"200":{"description":"Successful Response","c
+ontent":{"application/json":{"schema":{}}}}}}},"/v1/witness/respond":{"post":{"summary":"V1 Witness Respond","descripti
+on":"M8 witness 妗╁崰鐢ㄦ姇绁紱witness 韬唤鏉ヨ嚜 X-JoyKey锛涙垚鍔?204 No Content銆?,"operationId":"v1_witness_respond_v1_witness_resp
+ond_post","requestBody":{"content":{"application/json":{"schema":{"$ref":"#/components/schemas/WitnessResponseIn"}}},"r
+equired":true},"responses":{"200":{"description":"Successful Response","content":{"application/json":{"schema":{}}}},"4
+22":{"description":"Validation Error","content":{"application/json":{"schema":{"$ref":"#/components/schemas/HTTPValidat
+ionError"}}}}}}},"/v1/witness/segment_respond":{"post":{"summary":"V1 Witness Segment Respond","description":"M9 Segmen
+t witness锛泈itness 韬唤鏉ヨ嚜 X-JoyKey锛涙垚鍔?204 No Content銆傜姸鎬佸彉鍖栬Е鍙?HAZARD_STATUS_CHANGED webhook銆?,"operationId":"v1_witnes
+s_segment_respond_v1_witness_segment_respond_post","requestBody":{"content":{"application/json":{"schema":{"$ref":"#/co
+mponents/schemas/SegmentWitnessResponseIn"}}},"required":true},"responses":{"200":{"description":"Successful Response",
+"content":{"application/json":{"schema":{}}}},"422":{"description":"Validation Error","content":{"application/json":{"s
+chema":{"$ref":"#/components/schemas/HTTPValidationError"}}}}}}},"/v1/ai_jobs/vision_audit":{"post":{"summary":"V1 Ai J
+obs Vision Audit","description":"M9.1: 鍒涘缓瑙嗚瀹¤ job锛岃繑鍥?{ai_job_id, ai_job_type, ai_job_status}銆?,"operationId":"v1_ai
+_jobs_vision_audit_v1_ai_jobs_vision_audit_post","requestBody":{"content":{"application/json":{"schema":{"$ref":"#/comp
+onents/schemas/AiJobsVisionAuditIn"}}},"required":true},"responses":{"200":{"description":"Successful Response","conten
+t":{"application/json":{"schema":{}}}},"422":{"description":"Validation Error","content":{"application/json":{"schema":
+{"$ref":"#/components/schemas/HTTPValidationError"}}}}}}},"/v1/ai_jobs/tick":{"post":{"summary":"V1 Ai Jobs Tick","desc
+ription":"M9.1: 鎺ㄨ繘 AI Jobs锛坉emo 椹卞姩鍣級銆?,"operationId":"v1_ai_jobs_tick_v1_ai_jobs_tick_post","requestBody":{"content"
+:{"application/json":{"schema":{"$ref":"#/components/schemas/AiJobsTickIn"}}},"required":true},"responses":{"200":{"des
+cription":"Successful Response","content":{"application/json":{"schema":{}}}},"422":{"description":"Validation Error","
+content":{"application/json":{"schema":{"$ref":"#/components/schemas/HTTPValidationError"}}}}}}},"/v1/ai_jobs":{"get":{
+"summary":"V1 Ai Jobs List","description":"M9.1: 鏌ヨ AI Jobs 鍒楄〃銆?,"operationId":"v1_ai_jobs_list_v1_ai_jobs_get","resp
+onses":{"200":{"description":"Successful Response","content":{"application/json":{"schema":{}}}}}}},"/demo":{"get":{"su
+mmary":"Demo Redirect","description":"婕旂ず鍏ュ彛锛岄噸瀹氬悜鍒?dashboard","operationId":"demo_redirect_demo_get","responses":{"200
+":{"description":"Successful Response","content":{"application/json":{"schema":{}}}}}}},"/dashboard/incidents_daily":{"
+get":{"summary":"Dashboard Incidents Daily","description":"浠婃棩 incidents 姹囨€?HTML锛涚粺璁″熀浜?store.incidents_daily_report锛屼
+笉鍋氬澶?schema 鍙樻洿銆?,"operationId":"dashboard_incidents_daily_dashboard_incidents_daily_get","responses":{"200":{"descrip
+tion":"Successful Response","content":{"text/html":{"schema":{"type":"string"}}}}}}},"/bootstrap":{"get":{"summary":"Bo
+otstrap","description":"鍒濆鍖栨矙鐩掑苟杩斿洖 sandbox_id锛堥娆¤闂細璁剧疆 cookie锛塡n鐢ㄤ簬鑴氭湰/瀹㈡埛绔娆¤闂椂鑾峰彇 sandbox cookie","operationI
+d":"bootstrap_bootstrap_get","responses":{"200":{"description":"Successful Response","content":{"application/json":{"sc
+hema":{}}}}}}},"/v1/webhooks/subscriptions":{"get":{"summary":"V1 Webhooks Subscriptions List","description":"鏌ヨ webho
+ok subscriptions锛涗弗鏍肩鍚?FIELD_REGISTRY WebhookSubscriptionListOK銆?,"operationId":"v1_webhooks_subscriptions_list_v1_web
+hooks_subscriptions_get","responses":{"200":{"description":"Successful Response","content":{"application/json":{"schema
+":{"$ref":"#/components/schemas/WebhookSubscriptionListOut"}}}}}},"post":{"summary":"V1 Webhooks Subscriptions Create",
+"description":"鍒涘缓 webhook subscription锛涗弗鏍肩鍚?FIELD_REGISTRY WebhookSubscriptionCreated銆?,"operationId":"v1_webhooks_s
+ubscriptions_create_v1_webhooks_subscriptions_post","requestBody":{"content":{"application/json":{"schema":{"$ref":"#/c
+omponents/schemas/WebhookSubscriptionCreateIn"}}},"required":true},"responses":{"200":{"description":"Successful Respon
+se","content":{"application/json":{"schema":{"$ref":"#/components/schemas/WebhookSubscriptionOut"}}}},"422":{"descripti
+on":"Validation Error","content":{"application/json":{"schema":{"$ref":"#/components/schemas/HTTPValidationError"}}}}}}
+},"/v1/webhooks/deliveries":{"get":{"summary":"V1 Webhooks Deliveries List","description":"鏌ヨ webhook deliveries锛涗弗鏍肩
+鍚?FIELD_REGISTRY WebhookDeliveriesListOK銆?,"operationId":"v1_webhooks_deliveries_list_v1_webhooks_deliveries_get","resp
+onses":{"200":{"description":"Successful Response","content":{"application/json":{"schema":{"$ref":"#/components/schema
+s/WebhookDeliveryListOut"}}}}}}},"/v1/hazards":{"get":{"summary":"V1 Hazards List","description":"GET /v1/hazards锛涗弗鏍肩
+鍚?FIELD_REGISTRY HazardsList銆?,"operationId":"v1_hazards_list_v1_hazards_get","responses":{"200":{"description":"Succes
+sful Response","content":{"application/json":{"schema":{"$ref":"#/components/schemas/HazardsListOut"}}}}}}}},"component
+s":{"schemas":{"AiJobsTickIn":{"properties":{"max_jobs":{"type":"integer","title":"Max Jobs"}},"type":"object","require
+d":["max_jobs"],"title":"AiJobsTickIn"},"AiJobsVisionAuditIn":{"properties":{"incident_id":{"type":"string","title":"In
+cident Id"}},"type":"object","required":["incident_id"],"title":"AiJobsVisionAuditIn"},"HTTPValidationError":{"properti
+es":{"detail":{"items":{"$ref":"#/components/schemas/ValidationError"},"type":"array","title":"Detail"}},"type":"object
+","title":"HTTPValidationError"},"HazardItemOut":{"properties":{"segment_id":{"type":"string","title":"Segment Id"},"ha
+zard_status":{"type":"string","title":"Hazard Status"},"obstacle_type":{"anyOf":[{"type":"string"},{"type":"null"}],"ti
+tle":"Obstacle Type"},"evidence_refs":{"anyOf":[{"items":{"type":"string"},"type":"array"},{"type":"null"}],"title":"Ev
+idence Refs"},"updated_at":{"type":"string","title":"Updated At"}},"type":"object","required":["segment_id","hazard_sta
+tus","obstacle_type","evidence_refs","updated_at"],"title":"HazardItemOut"},"HazardsListOut":{"properties":{"hazards":{
+"items":{"$ref":"#/components/schemas/HazardItemOut"},"type":"array","title":"Hazards"}},"type":"object","required":["h
+azards"],"title":"HazardsListOut"},"IncidentItemOut":{"properties":{"incident_id":{"type":"string","title":"Incident Id
+"},"incident_type":{"type":"string","title":"Incident Type"},"incident_status":{"type":"string","title":"Incident Statu
+s"},"charger_id":{"anyOf":[{"type":"string"},{"type":"null"}],"title":"Charger Id"},"segment_id":{"anyOf":[{"type":"str
+ing"},{"type":"null"}],"title":"Segment Id"},"snapshot_ref":{"anyOf":[{"type":"string"},{"type":"null"}],"title":"Snaps
+hot Ref"},"evidence_refs":{"anyOf":[{"items":{"type":"string"},"type":"array"},{"type":"null"}],"title":"Evidence Refs"
+},"ai_insights":{"anyOf":[{"items":{"type":"object"},"type":"array"},{"type":"null"}],"title":"Ai Insights"}},"type":"o
+bject","required":["incident_id","incident_type","incident_status","charger_id","segment_id","snapshot_ref","evidence_r
+efs","ai_insights"],"title":"IncidentItemOut"},"IncidentListOut":{"properties":{"incidents":{"items":{"$ref":"#/compone
+nts/schemas/IncidentItemOut"},"type":"array","title":"Incidents"}},"type":"object","required":["incidents"],"title":"In
+cidentListOut"},"IncidentsReportBlockedOut":{"properties":{"incident_id":{"type":"string","title":"Incident Id"}},"type
+":"object","required":["incident_id"],"title":"IncidentsReportBlockedOut"},"OracleEventIn":{"properties":{"hold_id":{"t
+ype":"string","title":"Hold Id"},"charger_id":{"type":"string","title":"Charger Id"},"meter_session_id":{"type":"string
+","title":"Meter Session Id"},"event_occurred_at":{"type":"string","title":"Event Occurred At"}},"type":"object","requi
+red":["hold_id","charger_id","meter_session_id","event_occurred_at"],"title":"OracleEventIn"},"ReportBlockedIn":{"prope
+rties":{"charger_id":{"type":"string","title":"Charger Id"},"incident_type":{"type":"string","title":"Incident Type"},"
+snapshot_ref":{"anyOf":[{"type":"string"},{"type":"null"}],"title":"Snapshot Ref"},"evidence_refs":{"anyOf":[{"items":{
+"type":"string"},"type":"array"},{"type":"null"}],"title":"Evidence Refs"}},"type":"object","required":["charger_id","i
+ncident_type"],"title":"ReportBlockedIn"},"ReserveRequestIn":{"properties":{"resource_type":{"type":"string","title":"R
+esource Type"},"resource_id":{"type":"string","title":"Resource Id"},"joykey":{"type":"string","title":"Joykey"},"actio
+n":{"type":"string","title":"Action"}},"type":"object","required":["resource_type","resource_id","joykey","action"],"ti
+tle":"ReserveRequestIn"},"SegmentWitnessResponseIn":{"properties":{"segment_id":{"type":"string","title":"Segment Id"},
+"hazard_status":{"type":"string","title":"Hazard Status"},"obstacle_type":{"anyOf":[{"type":"string"},{"type":"null"}],
+"title":"Obstacle Type"},"evidence_refs":{"anyOf":[{"items":{"type":"string"},"type":"array"},{"type":"null"}],"title":
+"Evidence Refs"},"points_event_id":{"anyOf":[{"type":"string"},{"type":"null"}],"title":"Points Event Id"}},"type":"obj
+ect","required":["segment_id","hazard_status"],"title":"SegmentWitnessResponseIn","description":"POST /v1/witness/segme
+nt_respond 璇锋眰浣擄紝瀵归綈 FIELD_REGISTRY SegmentWitnessResponseRequest銆?},"UpdateStatusIn":{"properties":{"incident_id":{"ty
+pe":"string","title":"Incident Id"},"incident_status":{"type":"string","title":"Incident Status"}},"type":"object","req
+uired":["incident_id","incident_status"],"title":"UpdateStatusIn"},"ValidationError":{"properties":{"loc":{"items":{"an
+yOf":[{"type":"string"},{"type":"integer"}]},"type":"array","title":"Location"},"msg":{"type":"string","title":"Message
+"},"type":{"type":"string","title":"Error Type"}},"type":"object","required":["loc","msg","type"],"title":"ValidationEr
+ror"},"WebhookDeliveryListOut":{"properties":{"deliveries":{"items":{"$ref":"#/components/schemas/WebhookDeliveryOut"},
+"type":"array","title":"Deliveries"}},"type":"object","required":["deliveries"],"title":"WebhookDeliveryListOut"},"Webh
+ookDeliveryOut":{"properties":{"delivery_id":{"type":"string","title":"Delivery Id"},"event_id":{"type":"string","title
+":"Event Id"},"event_type":{"type":"string","title":"Event Type"},"subscription_id":{"type":"string","title":"Subscript
+ion Id"},"target_url":{"type":"string","title":"Target Url"},"delivery_status":{"type":"string","title":"Delivery Statu
+s"},"attempts":{"type":"integer","title":"Attempts"},"last_status_code":{"anyOf":[{"type":"integer"},{"type":"null"}],"
+title":"Last Status Code"},"last_error":{"anyOf":[{"type":"string"},{"type":"null"}],"title":"Last Error"},"created_at"
+:{"type":"string","title":"Created At"},"updated_at":{"type":"string","title":"Updated At"},"delivered_at":{"anyOf":[{"
+type":"string"},{"type":"null"}],"title":"Delivered At"}},"type":"object","required":["delivery_id","event_id","event_t
+ype","subscription_id","target_url","delivery_status","attempts","last_status_code","last_error","created_at","updated_
+at","delivered_at"],"title":"WebhookDeliveryOut"},"WebhookSubscriptionCreateIn":{"properties":{"target_url":{"type":"st
+ring","title":"Target Url"},"event_types":{"items":{"type":"string"},"type":"array","title":"Event Types"},"secret":{"a
+nyOf":[{"type":"string"},{"type":"null"}],"title":"Secret"},"is_enabled":{"anyOf":[{"type":"boolean"},{"type":"null"}],
+"title":"Is Enabled"}},"type":"object","required":["target_url","event_types"],"title":"WebhookSubscriptionCreateIn"},"
+WebhookSubscriptionListOut":{"properties":{"subscriptions":{"items":{"$ref":"#/components/schemas/WebhookSubscriptionOu
+t"},"type":"array","title":"Subscriptions"}},"type":"object","required":["subscriptions"],"title":"WebhookSubscriptionL
+istOut"},"WebhookSubscriptionOut":{"properties":{"subscription_id":{"type":"string","title":"Subscription Id"},"target_
+url":{"type":"string","title":"Target Url"},"event_types":{"items":{"type":"string"},"type":"array","title":"Event Type
+s"},"is_enabled":{"type":"boolean","title":"Is Enabled"},"created_at":{"type":"string","title":"Created At"}},"type":"o
+bject","required":["subscription_id","target_url","event_types","is_enabled","created_at"],"title":"WebhookSubscription
+Out"},"WitnessResponseIn":{"properties":{"incident_id":{"type":"string","title":"Incident Id"},"charger_id":{"type":"st
+ring","title":"Charger Id"},"charger_state":{"type":"string","title":"Charger State"},"obstacle_type":{"anyOf":[{"type"
+:"string"},{"type":"null"}],"title":"Obstacle Type"},"evidence_refs":{"anyOf":[{"items":{"type":"string"},"type":"array
+"},{"type":"null"}],"title":"Evidence Refs"},"points_event_id":{"anyOf":[{"type":"string"},{"type":"null"}],"title":"Po
+ints Event Id"}},"type":"object","required":["incident_id","charger_id","charger_state"],"title":"WitnessResponseIn","d
+escription":"POST /v1/witness/respond 璇锋眰浣擄紝涓ユ牸瀵归綈 FIELD_REGISTRY WitnessResponseRequest銆?}}}}
+COOKIE => joygate_sandbox=0846c07a6fc84243
+{"subscription_id":"sub_785920c21f23","target_url":"http://127.0.0.1:9001/webhook","event_types":["INCIDENT_CREATED","INCIDENT_STATUS_CHANGED","AI_JOB_STATUS_CHANGED"],"is_enabled":true,"created_at":"2026-02-08T07:12:39Z"}
+
+{"subscription_id":"sub_3018bf46d6d8","target_url":"http://127.0.0.1:9001/webhook","event_types":["INCIDENT_CREATED","INCIDENT_STATUS_CHANGED","AI_JOB_STATUS_CHANGED"],"is_enabled":true,"created_at":"2026-02-08T07:12:39Z"}
+
+INCIDENT => {"incident_id":"inc_c864ba9779b0"}
+INC_ID => inc_c864ba9779b0
+
+update_status http_code => 204
+
+{"ai_job_id":"job_3358b246ba82","ai_job_type":"VISION_AUDIT","ai_job_status":"ACCEPTED"}
+
+{"processed":1,"completed":1}
+
+DELIVERIES => {"deliveries":[{"delivery_id":"del_65c278f55ce6","event_id":"evt_fa2d40aa88bb","event_type":"AI_JOB_STATUS_CHANGED","subscription_id":"sub_785920c21f23","target_url":"http://127.0.0.1:9001/webhook","delivery_status":"DELIVERED","attempts":1,"last_status_code":200,"last_error":null,"created_at":"2026-02-08T07:12:40Z","updated_at":"2026-02-08T07:12:40Z","delivered_at":"2026-02-08T07:12:40Z"},{"delivery_id":"del_731da244bcf3","event_id":"evt_fa2d40aa88bb","event_type":"AI_JOB_STATUS_CHANGED","subscription_id":"sub_3018bf46d6d8","target_url":"http://127.0.0.1:9001/webhook","delivery_status":"DELIVERED","attempts":1,"last_status_code":200,"last_error":null,"created_at":"2026-02-08T07:12:40Z","updated_at":"2026-02-08T07:12:40Z","delivered_at":"2026-02-08T07:12:40Z"},{"delivery_id":"del_b9f70d7d1f1f","event_id":"evt_7f85a19b5e10","event_type":"INCIDENT_STATUS_CHANGED","subscription_id":"sub_785920c21f23","target_url":"http://127.0.0.1:9001/webhook","delivery_status":"DELIVERED","attempts":1,"last_status_code":200,"last_error":null,"created_at":"2026-02-08T07:12:40Z","updated_at":"2026-02-08T07:12:40Z","delivered_at":"2026-02-08T07:12:40Z"},{"delivery_id":"del_6c8bf99f5975","event_id":"evt_7f85a19b5e10","event_type":"INCIDENT_STATUS_CHANGED","subscription_id":"sub_3018bf46d6d8","target_url":"http://127.0.0.1:9001/webhook","delivery_status":"DELIVERED","attempts":1,"last_status_code":200,"last_error":null,"created_at":"2026-02-08T07:12:40Z","updated_at":"2026-02-08T07:12:40Z","delivered_at":"2026-02-08T07:12:40Z"},{"delivery_id":"del_88589ececce7","event_id":"evt_35efdf291107","event_type":"INCIDENT_CREATED","subscription_id":"sub_785920c21f23","target_url":"http://127.0.0.1:9001/webhook","delivery_status":"DELIVERED","attempts":1,"last_status_code":200,"last_error":null,"created_at":"2026-02-08T07:12:39Z","updated_at":"2026-02-08T07:12:39Z","delivered_at":"2026-02-08T07:12:39Z"},{"delivery_id":"del_0308067b69bf","event_id":"evt_35efdf291107","event_type":"INCIDENT_CREATED","subscription_id":"sub_3018bf46d6d8","target_url":"http://127.0.0.1:9001/webhook","delivery_status":"DELIVERED","attempts":1,"last_status_code":200,"last_error":null,"created_at":"2026-02-08T07:12:39Z","updated_at":"2026-02-08T07:12:39Z","delivered_at":"2026-02-08T07:12:39Z"},{"delivery_id":"del_9ccc0d067992","event_id":"evt_c6706d4af1be","event_type":"INCIDENT_STATUS_CHANGED","subscription_id":"sub_785920c21f23","target_url":"http://127.0.0.1:9001/webhook","delivery_status":"DELIVERED","attempts":1,"last_status_code":200,"last_error":null,"created_at":"2026-02-08T07:12:39Z","updated_at":"2026-02-08T07:12:39Z","delivered_at":"2026-02-08T07:12:39Z"},{"delivery_id":"del_43c108736cfa","event_id":"evt_c6706d4af1be","event_type":"INCIDENT_STATUS_CHANGED","subscription_id":"sub_3018bf46d6d8","target_url":"http://127.0.0.1:9001/webhook","delivery_status":"DELIVERED","attempts":1,"last_status_code":200,"last_error":null,"created_at":"2026-02-08T07:12:39Z","updated_at":"2026-02-08T07:12:39Z","delivered_at":"2026-02-08T07:12:39Z"}]}
+
+
+
+
+=== RUN 2 ===
+
+{"openapi":"3.1.0","info":{"title":"JoyGate v0.3 - Hackathon Charger","version":"0.1.0"},"paths":{"/v1/incidents":{"get
+":{"summary":"V1 Incidents","description":"杩斿洖浜嬩欢鍒楄〃锛屼弗鏍肩鍚?FIELD_REGISTRY IncidentList锛歿 incidents: [...] }銆?,"operati
+onId":"v1_incidents_v1_incidents_get","parameters":[{"name":"incident_id","in":"query","required":false,"schema":{"anyO
+f":[{"type":"string"},{"type":"null"}],"title":"Incident Id"}},{"name":"incident_type","in":"query","required":false,"s
+chema":{"anyOf":[{"type":"string"},{"type":"null"}],"title":"Incident Type"}},{"name":"incident_status","in":"query","r
+equired":false,"schema":{"anyOf":[{"type":"string"},{"type":"null"}],"title":"Incident Status"}},{"name":"charger_id","
+in":"query","required":false,"schema":{"anyOf":[{"type":"string"},{"type":"null"}],"title":"Charger Id"}},{"name":"segm
+ent_id","in":"query","required":false,"schema":{"anyOf":[{"type":"string"},{"type":"null"}],"title":"Segment Id"}}],"re
+sponses":{"200":{"description":"Successful Response","content":{"application/json":{"schema":{"$ref":"#/components/sche
+mas/IncidentListOut"}}}},"422":{"description":"Validation Error","content":{"application/json":{"schema":{"$ref":"#/com
+ponents/schemas/HTTPValidationError"}}}}}}},"/v1/incidents/report_blocked":{"post":{"summary":"V1 Incidents Report Bloc
+ked","description":"鍒涘缓涓€鏉?blocked 绫讳簨浠讹紝杩斿洖 incident_id锛涗弗鏍肩鍚?FIELD_REGISTRY IncidentsReportBlockedOK銆?,"operationId"
+:"v1_incidents_report_blocked_v1_incidents_report_blocked_post","requestBody":{"content":{"application/json":{"schema":
+{"$ref":"#/components/schemas/ReportBlockedIn"}}},"required":true},"responses":{"200":{"description":"Successful Respon
+se","content":{"application/json":{"schema":{"$ref":"#/components/schemas/IncidentsReportBlockedOut"}}}},"422":{"descri
+ption":"Validation Error","content":{"application/json":{"schema":{"$ref":"#/components/schemas/HTTPValidationError"}}}
+}}}},"/v1/incidents/update_status":{"post":{"summary":"V1 Incidents Update Status","description":"鏇存柊浜嬩欢鐘舵€侊紱涓ユ牸绗﹀悎 FIE
+LD_REGISTRY POST /v1/incidents/update_status锛屾垚鍔?204 No Content銆?,"operationId":"v1_incidents_update_status_v1_incident
+s_update_status_post","requestBody":{"content":{"application/json":{"schema":{"$ref":"#/components/schemas/UpdateStatus
+In"}}},"required":true},"responses":{"200":{"description":"Successful Response","content":{"application/json":{"schema"
+:{}}}},"422":{"description":"Validation Error","content":{"application/json":{"schema":{"$ref":"#/components/schemas/HT
+TPValidationError"}}}}}}},"/v1/reserve":{"post":{"summary":"V1 Reserve","operationId":"v1_reserve_v1_reserve_post","req
+uestBody":{"content":{"application/json":{"schema":{"$ref":"#/components/schemas/ReserveRequestIn"}}},"required":true},
+"responses":{"200":{"description":"Successful Response","content":{"application/json":{"schema":{}}}},"422":{"descripti
+on":"Validation Error","content":{"application/json":{"schema":{"$ref":"#/components/schemas/HTTPValidationError"}}}}}}
+},"/v1/oracle/start_charging":{"post":{"summary":"Oracle Start","operationId":"oracle_start_v1_oracle_start_charging_po
+st","requestBody":{"content":{"application/json":{"schema":{"$ref":"#/components/schemas/OracleEventIn"}}},"required":t
+rue},"responses":{"200":{"description":"Successful Response","content":{"application/json":{"schema":{}}}},"422":{"desc
+ription":"Validation Error","content":{"application/json":{"schema":{"$ref":"#/components/schemas/HTTPValidationError"}
+}}}}}},"/v1/oracle/stop_charging":{"post":{"summary":"Oracle Stop","operationId":"oracle_stop_v1_oracle_stop_charging_p
+ost","requestBody":{"content":{"application/json":{"schema":{"$ref":"#/components/schemas/OracleEventIn"}}},"required":
+true},"responses":{"200":{"description":"Successful Response","content":{"application/json":{"schema":{}}}},"422":{"des
+cription":"Validation Error","content":{"application/json":{"schema":{"$ref":"#/components/schemas/HTTPValidationError"
+}}}}}}},"/v1/snapshot":{"get":{"summary":"V1 Snapshot","description":"杩斿洖褰撳墠 chargers / holds 蹇収锛屽瓧娈典弗鏍肩鍚?FIELD_REGIS
+TRY SnapshotOK銆?,"operationId":"v1_snapshot_v1_snapshot_get","responses":{"200":{"description":"Successful Response","c
+ontent":{"application/json":{"schema":{}}}}}}},"/v1/witness/respond":{"post":{"summary":"V1 Witness Respond","descripti
+on":"M8 witness 妗╁崰鐢ㄦ姇绁紱witness 韬唤鏉ヨ嚜 X-JoyKey锛涙垚鍔?204 No Content銆?,"operationId":"v1_witness_respond_v1_witness_resp
+ond_post","requestBody":{"content":{"application/json":{"schema":{"$ref":"#/components/schemas/WitnessResponseIn"}}},"r
+equired":true},"responses":{"200":{"description":"Successful Response","content":{"application/json":{"schema":{}}}},"4
+22":{"description":"Validation Error","content":{"application/json":{"schema":{"$ref":"#/components/schemas/HTTPValidat
+ionError"}}}}}}},"/v1/witness/segment_respond":{"post":{"summary":"V1 Witness Segment Respond","description":"M9 Segmen
+t witness锛泈itness 韬唤鏉ヨ嚜 X-JoyKey锛涙垚鍔?204 No Content銆傜姸鎬佸彉鍖栬Е鍙?HAZARD_STATUS_CHANGED webhook銆?,"operationId":"v1_witnes
+s_segment_respond_v1_witness_segment_respond_post","requestBody":{"content":{"application/json":{"schema":{"$ref":"#/co
+mponents/schemas/SegmentWitnessResponseIn"}}},"required":true},"responses":{"200":{"description":"Successful Response",
+"content":{"application/json":{"schema":{}}}},"422":{"description":"Validation Error","content":{"application/json":{"s
+chema":{"$ref":"#/components/schemas/HTTPValidationError"}}}}}}},"/v1/ai_jobs/vision_audit":{"post":{"summary":"V1 Ai J
+obs Vision Audit","description":"M9.1: 鍒涘缓瑙嗚瀹¤ job锛岃繑鍥?{ai_job_id, ai_job_type, ai_job_status}銆?,"operationId":"v1_ai
+_jobs_vision_audit_v1_ai_jobs_vision_audit_post","requestBody":{"content":{"application/json":{"schema":{"$ref":"#/comp
+onents/schemas/AiJobsVisionAuditIn"}}},"required":true},"responses":{"200":{"description":"Successful Response","conten
+t":{"application/json":{"schema":{}}}},"422":{"description":"Validation Error","content":{"application/json":{"schema":
+{"$ref":"#/components/schemas/HTTPValidationError"}}}}}}},"/v1/ai_jobs/tick":{"post":{"summary":"V1 Ai Jobs Tick","desc
+ription":"M9.1: 鎺ㄨ繘 AI Jobs锛坉emo 椹卞姩鍣級銆?,"operationId":"v1_ai_jobs_tick_v1_ai_jobs_tick_post","requestBody":{"content"
+:{"application/json":{"schema":{"$ref":"#/components/schemas/AiJobsTickIn"}}},"required":true},"responses":{"200":{"des
+cription":"Successful Response","content":{"application/json":{"schema":{}}}},"422":{"description":"Validation Error","
+content":{"application/json":{"schema":{"$ref":"#/components/schemas/HTTPValidationError"}}}}}}},"/v1/ai_jobs":{"get":{
+"summary":"V1 Ai Jobs List","description":"M9.1: 鏌ヨ AI Jobs 鍒楄〃銆?,"operationId":"v1_ai_jobs_list_v1_ai_jobs_get","resp
+onses":{"200":{"description":"Successful Response","content":{"application/json":{"schema":{}}}}}}},"/demo":{"get":{"su
+mmary":"Demo Redirect","description":"婕旂ず鍏ュ彛锛岄噸瀹氬悜鍒?dashboard","operationId":"demo_redirect_demo_get","responses":{"200
+":{"description":"Successful Response","content":{"application/json":{"schema":{}}}}}}},"/dashboard/incidents_daily":{"
+get":{"summary":"Dashboard Incidents Daily","description":"浠婃棩 incidents 姹囨€?HTML锛涚粺璁″熀浜?store.incidents_daily_report锛屼
+笉鍋氬澶?schema 鍙樻洿銆?,"operationId":"dashboard_incidents_daily_dashboard_incidents_daily_get","responses":{"200":{"descrip
+tion":"Successful Response","content":{"text/html":{"schema":{"type":"string"}}}}}}},"/bootstrap":{"get":{"summary":"Bo
+otstrap","description":"鍒濆鍖栨矙鐩掑苟杩斿洖 sandbox_id锛堥娆¤闂細璁剧疆 cookie锛塡n鐢ㄤ簬鑴氭湰/瀹㈡埛绔娆¤闂椂鑾峰彇 sandbox cookie","operationI
+d":"bootstrap_bootstrap_get","responses":{"200":{"description":"Successful Response","content":{"application/json":{"sc
+hema":{}}}}}}},"/v1/webhooks/subscriptions":{"get":{"summary":"V1 Webhooks Subscriptions List","description":"鏌ヨ webho
+ok subscriptions锛涗弗鏍肩鍚?FIELD_REGISTRY WebhookSubscriptionListOK銆?,"operationId":"v1_webhooks_subscriptions_list_v1_web
+hooks_subscriptions_get","responses":{"200":{"description":"Successful Response","content":{"application/json":{"schema
+":{"$ref":"#/components/schemas/WebhookSubscriptionListOut"}}}}}},"post":{"summary":"V1 Webhooks Subscriptions Create",
+"description":"鍒涘缓 webhook subscription锛涗弗鏍肩鍚?FIELD_REGISTRY WebhookSubscriptionCreated銆?,"operationId":"v1_webhooks_s
+ubscriptions_create_v1_webhooks_subscriptions_post","requestBody":{"content":{"application/json":{"schema":{"$ref":"#/c
+omponents/schemas/WebhookSubscriptionCreateIn"}}},"required":true},"responses":{"200":{"description":"Successful Respon
+se","content":{"application/json":{"schema":{"$ref":"#/components/schemas/WebhookSubscriptionOut"}}}},"422":{"descripti
+on":"Validation Error","content":{"application/json":{"schema":{"$ref":"#/components/schemas/HTTPValidationError"}}}}}}
+},"/v1/webhooks/deliveries":{"get":{"summary":"V1 Webhooks Deliveries List","description":"鏌ヨ webhook deliveries锛涗弗鏍肩
+鍚?FIELD_REGISTRY WebhookDeliveriesListOK銆?,"operationId":"v1_webhooks_deliveries_list_v1_webhooks_deliveries_get","resp
+onses":{"200":{"description":"Successful Response","content":{"application/json":{"schema":{"$ref":"#/components/schema
+s/WebhookDeliveryListOut"}}}}}}},"/v1/hazards":{"get":{"summary":"V1 Hazards List","description":"GET /v1/hazards锛涗弗鏍肩
+鍚?FIELD_REGISTRY HazardsList銆?,"operationId":"v1_hazards_list_v1_hazards_get","responses":{"200":{"description":"Succes
+sful Response","content":{"application/json":{"schema":{"$ref":"#/components/schemas/HazardsListOut"}}}}}}}},"component
+s":{"schemas":{"AiJobsTickIn":{"properties":{"max_jobs":{"type":"integer","title":"Max Jobs"}},"type":"object","require
+d":["max_jobs"],"title":"AiJobsTickIn"},"AiJobsVisionAuditIn":{"properties":{"incident_id":{"type":"string","title":"In
+cident Id"}},"type":"object","required":["incident_id"],"title":"AiJobsVisionAuditIn"},"HTTPValidationError":{"properti
+es":{"detail":{"items":{"$ref":"#/components/schemas/ValidationError"},"type":"array","title":"Detail"}},"type":"object
+","title":"HTTPValidationError"},"HazardItemOut":{"properties":{"segment_id":{"type":"string","title":"Segment Id"},"ha
+zard_status":{"type":"string","title":"Hazard Status"},"obstacle_type":{"anyOf":[{"type":"string"},{"type":"null"}],"ti
+tle":"Obstacle Type"},"evidence_refs":{"anyOf":[{"items":{"type":"string"},"type":"array"},{"type":"null"}],"title":"Ev
+idence Refs"},"updated_at":{"type":"string","title":"Updated At"}},"type":"object","required":["segment_id","hazard_sta
+tus","obstacle_type","evidence_refs","updated_at"],"title":"HazardItemOut"},"HazardsListOut":{"properties":{"hazards":{
+"items":{"$ref":"#/components/schemas/HazardItemOut"},"type":"array","title":"Hazards"}},"type":"object","required":["h
+azards"],"title":"HazardsListOut"},"IncidentItemOut":{"properties":{"incident_id":{"type":"string","title":"Incident Id
+"},"incident_type":{"type":"string","title":"Incident Type"},"incident_status":{"type":"string","title":"Incident Statu
+s"},"charger_id":{"anyOf":[{"type":"string"},{"type":"null"}],"title":"Charger Id"},"segment_id":{"anyOf":[{"type":"str
+ing"},{"type":"null"}],"title":"Segment Id"},"snapshot_ref":{"anyOf":[{"type":"string"},{"type":"null"}],"title":"Snaps
+hot Ref"},"evidence_refs":{"anyOf":[{"items":{"type":"string"},"type":"array"},{"type":"null"}],"title":"Evidence Refs"
+},"ai_insights":{"anyOf":[{"items":{"type":"object"},"type":"array"},{"type":"null"}],"title":"Ai Insights"}},"type":"o
+bject","required":["incident_id","incident_type","incident_status","charger_id","segment_id","snapshot_ref","evidence_r
+efs","ai_insights"],"title":"IncidentItemOut"},"IncidentListOut":{"properties":{"incidents":{"items":{"$ref":"#/compone
+nts/schemas/IncidentItemOut"},"type":"array","title":"Incidents"}},"type":"object","required":["incidents"],"title":"In
+cidentListOut"},"IncidentsReportBlockedOut":{"properties":{"incident_id":{"type":"string","title":"Incident Id"}},"type
+":"object","required":["incident_id"],"title":"IncidentsReportBlockedOut"},"OracleEventIn":{"properties":{"hold_id":{"t
+ype":"string","title":"Hold Id"},"charger_id":{"type":"string","title":"Charger Id"},"meter_session_id":{"type":"string
+","title":"Meter Session Id"},"event_occurred_at":{"type":"string","title":"Event Occurred At"}},"type":"object","requi
+red":["hold_id","charger_id","meter_session_id","event_occurred_at"],"title":"OracleEventIn"},"ReportBlockedIn":{"prope
+rties":{"charger_id":{"type":"string","title":"Charger Id"},"incident_type":{"type":"string","title":"Incident Type"},"
+snapshot_ref":{"anyOf":[{"type":"string"},{"type":"null"}],"title":"Snapshot Ref"},"evidence_refs":{"anyOf":[{"items":{
+"type":"string"},"type":"array"},{"type":"null"}],"title":"Evidence Refs"}},"type":"object","required":["charger_id","i
+ncident_type"],"title":"ReportBlockedIn"},"ReserveRequestIn":{"properties":{"resource_type":{"type":"string","title":"R
+esource Type"},"resource_id":{"type":"string","title":"Resource Id"},"joykey":{"type":"string","title":"Joykey"},"actio
+n":{"type":"string","title":"Action"}},"type":"object","required":["resource_type","resource_id","joykey","action"],"ti
+tle":"ReserveRequestIn"},"SegmentWitnessResponseIn":{"properties":{"segment_id":{"type":"string","title":"Segment Id"},
+"hazard_status":{"type":"string","title":"Hazard Status"},"obstacle_type":{"anyOf":[{"type":"string"},{"type":"null"}],
+"title":"Obstacle Type"},"evidence_refs":{"anyOf":[{"items":{"type":"string"},"type":"array"},{"type":"null"}],"title":
+"Evidence Refs"},"points_event_id":{"anyOf":[{"type":"string"},{"type":"null"}],"title":"Points Event Id"}},"type":"obj
+ect","required":["segment_id","hazard_status"],"title":"SegmentWitnessResponseIn","description":"POST /v1/witness/segme
+nt_respond 璇锋眰浣擄紝瀵归綈 FIELD_REGISTRY SegmentWitnessResponseRequest銆?},"UpdateStatusIn":{"properties":{"incident_id":{"ty
+pe":"string","title":"Incident Id"},"incident_status":{"type":"string","title":"Incident Status"}},"type":"object","req
+uired":["incident_id","incident_status"],"title":"UpdateStatusIn"},"ValidationError":{"properties":{"loc":{"items":{"an
+yOf":[{"type":"string"},{"type":"integer"}]},"type":"array","title":"Location"},"msg":{"type":"string","title":"Message
+"},"type":{"type":"string","title":"Error Type"}},"type":"object","required":["loc","msg","type"],"title":"ValidationEr
+ror"},"WebhookDeliveryListOut":{"properties":{"deliveries":{"items":{"$ref":"#/components/schemas/WebhookDeliveryOut"},
+"type":"array","title":"Deliveries"}},"type":"object","required":["deliveries"],"title":"WebhookDeliveryListOut"},"Webh
+ookDeliveryOut":{"properties":{"delivery_id":{"type":"string","title":"Delivery Id"},"event_id":{"type":"string","title
+":"Event Id"},"event_type":{"type":"string","title":"Event Type"},"subscription_id":{"type":"string","title":"Subscript
+ion Id"},"target_url":{"type":"string","title":"Target Url"},"delivery_status":{"type":"string","title":"Delivery Statu
+s"},"attempts":{"type":"integer","title":"Attempts"},"last_status_code":{"anyOf":[{"type":"integer"},{"type":"null"}],"
+title":"Last Status Code"},"last_error":{"anyOf":[{"type":"string"},{"type":"null"}],"title":"Last Error"},"created_at"
+:{"type":"string","title":"Created At"},"updated_at":{"type":"string","title":"Updated At"},"delivered_at":{"anyOf":[{"
+type":"string"},{"type":"null"}],"title":"Delivered At"}},"type":"object","required":["delivery_id","event_id","event_t
+ype","subscription_id","target_url","delivery_status","attempts","last_status_code","last_error","created_at","updated_
+at","delivered_at"],"title":"WebhookDeliveryOut"},"WebhookSubscriptionCreateIn":{"properties":{"target_url":{"type":"st
+ring","title":"Target Url"},"event_types":{"items":{"type":"string"},"type":"array","title":"Event Types"},"secret":{"a
+nyOf":[{"type":"string"},{"type":"null"}],"title":"Secret"},"is_enabled":{"anyOf":[{"type":"boolean"},{"type":"null"}],
+"title":"Is Enabled"}},"type":"object","required":["target_url","event_types"],"title":"WebhookSubscriptionCreateIn"},"
+WebhookSubscriptionListOut":{"properties":{"subscriptions":{"items":{"$ref":"#/components/schemas/WebhookSubscriptionOu
+t"},"type":"array","title":"Subscriptions"}},"type":"object","required":["subscriptions"],"title":"WebhookSubscriptionL
+istOut"},"WebhookSubscriptionOut":{"properties":{"subscription_id":{"type":"string","title":"Subscription Id"},"target_
+url":{"type":"string","title":"Target Url"},"event_types":{"items":{"type":"string"},"type":"array","title":"Event Type
+s"},"is_enabled":{"type":"boolean","title":"Is Enabled"},"created_at":{"type":"string","title":"Created At"}},"type":"o
+bject","required":["subscription_id","target_url","event_types","is_enabled","created_at"],"title":"WebhookSubscription
+Out"},"WitnessResponseIn":{"properties":{"incident_id":{"type":"string","title":"Incident Id"},"charger_id":{"type":"st
+ring","title":"Charger Id"},"charger_state":{"type":"string","title":"Charger State"},"obstacle_type":{"anyOf":[{"type"
+:"string"},{"type":"null"}],"title":"Obstacle Type"},"evidence_refs":{"anyOf":[{"items":{"type":"string"},"type":"array
+"},{"type":"null"}],"title":"Evidence Refs"},"points_event_id":{"anyOf":[{"type":"string"},{"type":"null"}],"title":"Po
+ints Event Id"}},"type":"object","required":["incident_id","charger_id","charger_state"],"title":"WitnessResponseIn","d
+escription":"POST /v1/witness/respond 璇锋眰浣擄紝涓ユ牸瀵归綈 FIELD_REGISTRY WitnessResponseRequest銆?}}}}
+COOKIE => joygate_sandbox=62e9f5be6e3c43ca
+{"subscription_id":"sub_69740b56ec12","target_url":"http://127.0.0.1:9001/webhook","event_types":["INCIDENT_CREATED","INCIDENT_STATUS_CHANGED","AI_JOB_STATUS_CHANGED"],"is_enabled":true,"created_at":"2026-02-08T07:12:43Z"}
+
+{"subscription_id":"sub_9f7a6650426c","target_url":"http://127.0.0.1:9001/webhook","event_types":["INCIDENT_CREATED","INCIDENT_STATUS_CHANGED","AI_JOB_STATUS_CHANGED"],"is_enabled":true,"created_at":"2026-02-08T07:12:43Z"}
+
+INCIDENT => {"incident_id":"inc_b12d7f913ccc"}
+INC_ID => inc_b12d7f913ccc
+
+update_status http_code => 204
+
+{"ai_job_id":"job_89095b216d5b","ai_job_type":"VISION_AUDIT","ai_job_status":"ACCEPTED"}
+
+{"processed":1,"completed":1}
+
+DELIVERIES => {"deliveries":[{"delivery_id":"del_d534bca02d17","event_id":"evt_e87e7ab9dc55","event_type":"AI_JOB_STATUS_CHANGED","subscription_id":"sub_69740b56ec12","target_url":"http://127.0.0.1:9001/webhook","delivery_status":"DELIVERED","attempts":1,"last_status_code":200,"last_error":null,"created_at":"2026-02-08T07:12:44Z","updated_at":"2026-02-08T07:12:44Z","delivered_at":"2026-02-08T07:12:44Z"},{"delivery_id":"del_268ad2863330","event_id":"evt_e87e7ab9dc55","event_type":"AI_JOB_STATUS_CHANGED","subscription_id":"sub_9f7a6650426c","target_url":"http://127.0.0.1:9001/webhook","delivery_status":"DELIVERED","attempts":1,"last_status_code":200,"last_error":null,"created_at":"2026-02-08T07:12:44Z","updated_at":"2026-02-08T07:12:44Z","delivered_at":"2026-02-08T07:12:44Z"},{"delivery_id":"del_b85cd03b9144","event_id":"evt_507875e15ead","event_type":"INCIDENT_STATUS_CHANGED","subscription_id":"sub_69740b56ec12","target_url":"http://127.0.0.1:9001/webhook","delivery_status":"DELIVERED","attempts":1,"last_status_code":200,"last_error":null,"created_at":"2026-02-08T07:12:44Z","updated_at":"2026-02-08T07:12:44Z","delivered_at":"2026-02-08T07:12:44Z"},{"delivery_id":"del_097ed653a2ce","event_id":"evt_507875e15ead","event_type":"INCIDENT_STATUS_CHANGED","subscription_id":"sub_9f7a6650426c","target_url":"http://127.0.0.1:9001/webhook","delivery_status":"DELIVERED","attempts":1,"last_status_code":200,"last_error":null,"created_at":"2026-02-08T07:12:44Z","updated_at":"2026-02-08T07:12:44Z","delivered_at":"2026-02-08T07:12:44Z"},{"delivery_id":"del_1e08f4c7833f","event_id":"evt_17bb8146beed","event_type":"INCIDENT_CREATED","subscription_id":"sub_69740b56ec12","target_url":"http://127.0.0.1:9001/webhook","delivery_status":"DELIVERED","attempts":1,"last_status_code":200,"last_error":null,"created_at":"2026-02-08T07:12:43Z","updated_at":"2026-02-08T07:12:43Z","delivered_at":"2026-02-08T07:12:43Z"},{"delivery_id":"del_37acc05efd32","event_id":"evt_17bb8146beed","event_type":"INCIDENT_CREATED","subscription_id":"sub_9f7a6650426c","target_url":"http://127.0.0.1:9001/webhook","delivery_status":"DELIVERED","attempts":1,"last_status_code":200,"last_error":null,"created_at":"2026-02-08T07:12:43Z","updated_at":"2026-02-08T07:12:43Z","delivered_at":"2026-02-08T07:12:43Z"},{"delivery_id":"del_7283627100f3","event_id":"evt_7d6c6e2c2f0f","event_type":"INCIDENT_STATUS_CHANGED","subscription_id":"sub_69740b56ec12","target_url":"http://127.0.0.1:9001/webhook","delivery_status":"DELIVERED","attempts":1,"last_status_code":200,"last_error":null,"created_at":"2026-02-08T07:12:43Z","updated_at":"2026-02-08T07:12:43Z","delivered_at":"2026-02-08T07:12:43Z"},{"delivery_id":"del_684f0a16e0f0","event_id":"evt_7d6c6e2c2f0f","event_type":"INCIDENT_STATUS_CHANGED","subscription_id":"sub_9f7a6650426c","target_url":"http://127.0.0.1:9001/webhook","delivery_status":"DELIVERED","attempts":1,"last_status_code":200,"last_error":null,"created_at":"2026-02-08T07:12:43Z","updated_at":"2026-02-08T07:12:43Z","delivered_at":"2026-02-08T07:12:43Z"}]}
+
+
+
+

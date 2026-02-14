@@ -1,0 +1,1 @@
+{"target_url":"http://127.0.0.1:9000/hook","event_types":["INCIDENT_CREATED"],"secret":"abc","is_enabled":true}

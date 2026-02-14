@@ -1,0 +1,6 @@
+﻿{
+  "target_url": "http://127.0.0.1:9999/hook",
+  "event_types": ["INCIDENT_CREATED","INCIDENT_STATUS_CHANGED","AI_JOB_STATUS_CHANGED"],
+  "secret": null,
+  "is_enabled": true
+}

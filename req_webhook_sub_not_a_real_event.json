@@ -1,0 +1,1 @@
+{"target_url":"https://example.com/hook","event_types":["INCIDENT_CREATED","NOT_A_REAL_EVENT"],"is_enabled":true}

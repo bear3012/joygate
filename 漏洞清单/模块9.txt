@@ -1,0 +1,72 @@
+M9 清单（从能跑 → 能讲 → 能加分）
+M9.0 词典/契约对齐（必须先做）
+
+目标：把 Vision Audit 相关的字段/枚举/insight_type 先在 FIELD_REGISTRY 定义清楚，避免后面漂移。
+要定的最少集合：
+
+ai_job_type（至少含 VISION_AUDIT）
+
+ai_job_status（ACCEPTED/IN_PROGRESS/COMPLETED/FAILED）
+
+ai_report_id（字符串格式约定）
+
+ai_insight.insight_type 新增/确认：VISION_AUDIT_REQUESTED、VISION_AUDIT_RESULT（或你已有命名就沿用）
+
+ai_insight 里哪些字段会被用到（你现在有 summary/confidence/obstacle_type/sample_index/ai_report_id，挺好）
+
+Done：FIELD_REGISTRY 里能完整描述一次 “请求审计→产生报告→落到 incident.ai_insights” 的闭环字段。
+
+M9.1 “请求审计”入队（同步 API + 异步语义）
+
+目标：当 incident 需要视觉审计时，创建一个 job（返回 202/200 均可，按你现有风格）。
+关键点：
+
+不要后台线程（hackathon 环境不稳），用“可控异步”：job 先 ACCEPTED。
+
+job 关联：incident_id（必要），可选 snapshot_ref/evidence_refs。
+
+Done：能创建 job，能查到 job 状态。
+
+M9.2 Job 执行器（demo 友好：tick 驱动）
+
+目标：让 job 从 ACCEPTED -> IN_PROGRESS -> COMPLETED/FAILED 走完。
+建议做法（最稳、最好测）：
+
+加一个 tick/runner 的触发方式（例如一个 endpoint 或内部函数被测试脚本调用），一次 tick 只推进少量 job，避免长任务卡住。
+
+Done：测试脚本能确定性地把 job 推到 COMPLETED。
+
+M9.3 生成 AI Report（先 mock，后可接 Gemini）
+
+目标：给出一个 “报告对象/结论”，并写入 incident 的 ai_insights：
+
+写入/更新 VISION_AUDIT_RESULT（带 ai_report_id、summary、confidence、obstacle_type…）
+
+可选：保留 VISION_AUDIT_REQUESTED 作为历史/当前状态
+
+Done：/v1/incidents 返回的 ai_insights 里能看到 “requested + result”。
+
+M9.4 让报告驱动状态机（谨慎自动化）
+
+目标：把 AI 结论映射到 incident_status（你已有状态机）。
+建议默认保守（符合你“不是警察式裁决”的产品原则）：
+
+VISION_AUDIT_RESULT 只作为证据强化
+
+是否自动推进 EVIDENCE_CONFIRMED/ESCALATED/RESOLVED 用 env 开关控制（demo 可开，线上默认关）
+
+Done：至少能在 demo 中展示一次 “审计结果 → 状态变化”。
+
+M9.5 测试脚本 + RUN_LOG 证据（必须留痕）
+
+至少 1 个集成脚本：
+
+创建 incident
+
+触发 vision audit job
+
+tick 到完成
+
+GET /v1/incidents 验证：VISION_AUDIT_RESULT 出现 +（可选）status 被推进
+
+Done：RUN_LOG 有一条完整可复现记录。

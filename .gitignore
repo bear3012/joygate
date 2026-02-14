@@ -1,0 +1,21 @@
+# 项目约定：不上传
+docs_control_center/
+.env
+
+# Python
+__pycache__/
+.pycache/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDE / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
