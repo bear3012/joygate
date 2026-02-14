@@ -1,0 +1,137 @@
+# JoyGate External API Summary
+
+> Concise overview of public HTTP APIs derived from `FIELD_REGISTRY.md`. Field names and enums are defined in FIELD_REGISTRY as the single source of truth.
+
+---
+
+## 1. Reservation & Snapshot
+
+| Method | Path | Description | Main request/response |
+|--------|------|-------------|------------------------|
+| **POST** | `/v1/reserve` | Reserve a slot (e.g. charger) | **In:** resource_type, resource_id, joykey, action (enum) → **200:** hold_id, ttl_seconds \| **429:** error, message (QUOTA_EXCEEDED) \| **409:** error, message (RESOURCE_BUSY) |
+| **GET** | `/v1/snapshot` | System snapshot | **200:** snapshot_at, chargers[], holds[], hazards[], segment_passed_signals[]; hazards and segment_passed_signals are always lists (empty [] when no data) |
+
+---
+
+## 2. Oracle (Ground-truth events)
+
+| Method | Path | Description | Main request body |
+|--------|------|-------------|-------------------|
+| **POST** | `/v1/oracle/start_charging` | Start charging event | hold_id, charger_id, meter_session_id, event_occurred_at |
+| **POST** | `/v1/oracle/stop_charging` | Stop charging event | hold_id, charger_id, meter_session_id, event_occurred_at |
+
+---
+
+## 3. Incidents
+
+| Method | Path | Description | Main request/response |
+|--------|------|-------------|------------------------|
+| **POST** | `/v1/incidents/report_blocked` | Report blocked event (charger scope) | **In:** charger_id, incident_type (required); snapshot_ref?, evidence_refs? → **200:** incident_id |
+| **POST** | `/v1/incidents/update_status` | Update incident status | incident_id, incident_status → **204** \| 400/404 |
+| **GET** | `/v1/incidents` | Incident list (dashboard) | Query: incident_id?, incident_type?, incident_status?, charger_id?, segment_id? → **200:** incidents[] (IncidentItem: incident_id, incident_type, incident_status, charger_id, segment_id, snapshot_ref, evidence_refs, ai_insights[]) |
+
+---
+
+## 4. Witness (Verification)
+
+| Method | Path | Description | Main request |
+|--------|------|-------------|--------------|
+| **POST** | `/v1/witness/respond` | Charger occupancy vote | Header: X-JoyKey. Body: incident_id, charger_id, charger_state (enum); obstacle_type?, evidence_refs?, points_event_id? → **204** |
+| **POST** | `/v1/witness/segment_respond` | Segment verification | Header: X-JoyKey. Body: segment_id, segment_state or hazard_status (BLOCKED/CLEAR); points_event_id (required); obstacle_type?, evidence_refs?, incident_id? → **204** |
+
+---
+
+## 5. Hazards & Work orders
+
+| Method | Path | Description | Main request/response |
+|--------|------|-------------|------------------------|
+| **GET** | `/v1/hazards` | Hazard (segment block) list | **200:** hazards[] (segment_id, hazard_status, obstacle_type?, evidence_refs?, updated_at); hazard_status = OPEN \| SOFT_BLOCKED \| HARD_BLOCKED |
+| **POST** | `/v1/work_orders/report` | Work order report (only way to unblock HARD) | work_order_id, work_order_status, event_occurred_at; incident_id?, segment_id?, charger_id?, evidence_refs?. HARD_BLOCKED is unblocked only when work_order_status=DONE and segment_id is set → **204** |
+
+---
+
+## 6. Telemetry (Segment passed / freshness)
+
+| Method | Path | Description | Main request |
+|--------|------|-------------|--------------|
+| **POST** | `/v1/telemetry/segment_passed` | Report segment(s) passed | joykey, segment_ids[], event_occurred_at, truth_input_source (enum); fleet_id? → **204**. Does not directly change hazard_status. |
+
+---
+
+## 7. AI (Async jobs, 202 Accepted)
+
+| Method | Path | Description | Main request/response |
+|--------|------|-------------|------------------------|
+| **POST** | `/v1/ai/vision_audit` | Trigger vision audit | snapshot_ref?, evidence_refs?, incident_id?, model_tier? (FLASH/PRO) → **202:** ai_report_id, status |
+| **POST** | `/v1/ai/dispatch_explain` | Dispatch explanation | hold_id, audience, dispatch_reason_codes[]; obstacle_type?, context_ref?, model_tier? → **202:** ai_report_id, status |
+| **POST** | `/v1/ai/policy_suggest` | Policy suggestion | incident_id?, context_ref?, model_tier? → **202:** ai_report_id, status |
+| **POST** | `/v1/admin/apply_policy_suggestion` | Apply policy suggestion | ai_report_id, confirm → **202:** status |
+
+---
+
+## 8. Audit
+
+| Method | Path | Description | Main response |
+|--------|------|-------------|---------------|
+| **GET** | `/v1/audit/ledger` | Audit ledger | audit_status, decisions[], sidecar_safety_events[] |
+| **POST** | `/v1/audit/sidecar_safety_event` | Demo: inject sidecar safety event | suggestion_id?, joykey?, fleet_id?, oem_result, fallback_reason?, observed_by, observed_at (epoch number) → **204** |
+
+---
+
+## 9. Webhooks (Outbound)
+
+| Method | Path | Description | Main request/response |
+|--------|------|-------------|------------------------|
+| **POST** | `/v1/webhooks/subscriptions` | Create subscription | target_url, event_types[]; secret?, is_enabled? → subscription_id, target_url, event_types, is_enabled, created_at |
+| **GET** | `/v1/webhooks/subscriptions` | List subscriptions | → subscriptions[] |
+| **GET** | `/v1/webhooks/deliveries` | Delivery history | → deliveries[] (delivery_id, event_id, event_type, delivery_status, attempts, delivered_at, …) |
+
+Event types: INCIDENT_CREATED, INCIDENT_STATUS_CHANGED, HAZARD_STATUS_CHANGED, WORK_ORDER_STATUS_CHANGED, AI_JOB_STATUS_CHANGED, HOLD_CREATED, HOLD_EXPIRED, OTHER.  
+Outbound headers: X-JoyGate-Timestamp, X-JoyGate-Signature (optional).
+
+---
+
+## 10. Reputation & scoring (read-only, M16)
+
+| Method | Path | Description | Main response |
+|--------|------|-------------|---------------|
+| **GET** | `/v1/reputation` | Single-robot profile | Query: joykey (required). → robot_score, robot_tier, vote_weight, risk_flag, robot_score_updated_at, vendor (fleet_id). 404 when joykey not found. |
+| **GET** | `/v1/score_events` | Score event list | Query: limit? (default 100, max 500). → score_event_id, score_event_type, score_delta, score_evidence_refs, score_incident_id, score_snapshot_ref, joykey, occurred_at; newest first. |
+| **GET** | `/v1/vendor_scores` | Vendor score list | Query: fleet_id?. → fleet_id, vendor_score_robot_mapped, vendor_score_ops, vendor_score_total, updated_at. |
+
+---
+
+## 11. Policy (read-only)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| **GET** | `/v1/policy` | Returns policy config from FIELD_REGISTRY §4 (e.g. slot_duration_minutes, witness_votes_required, soft_hazard_recheck_interval_minutes). |
+
+---
+
+## 12. Non-contract / demo runtime behaviour
+
+- **GET /bootstrap**: Obtain sandbox and Set-Cookie; not part of /v1 contract.
+- **POST /v1/\*** without valid sandbox: **400** plain text `missing sandbox`.
+- Rate limited: **429** plain text `rate limited`.
+- Sandbox capacity reached: **503** plain text `sandbox capacity reached`.
+
+---
+
+## 13. Core enums quick reference
+
+| Enum | Values |
+|------|--------|
+| slot_state | FREE, HELD, CHARGING |
+| charger_state | FREE, OCCUPIED, UNKNOWN_OCCUPANCY |
+| incident_type | NO_PLUG, BLOCKED_BY_OTHER, BLOCKED, HIJACKED, UNKNOWN_OCCUPANCY, OVERSTAY, NO_SHOW, OTHER |
+| incident_status | OPEN, RESOLVED, ESCALATED, UNDER_OBSERVATION, EVIDENCE_CONFIRMED |
+| hazard_status (system) | OPEN, SOFT_BLOCKED, HARD_BLOCKED |
+| segment_state | PASSABLE, BLOCKED, UNKNOWN |
+| work_order_status | OPEN, IN_PROGRESS, DONE, FAILED, ESCALATED |
+| ai_job_status | ACCEPTED, IN_PROGRESS, COMPLETED, FAILED |
+| truth_input_source | SIMULATOR, OCPP, THIRD_PARTY_API, QR_SCAN, VISION |
+
+---
+
+*Generated from FIELD_REGISTRY.md. Field names, types, and enums are authoritative only in FIELD_REGISTRY; this document is a summary only.*
